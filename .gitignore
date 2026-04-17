@@ -1,0 +1,37 @@
+node_modules
+.next
+dist
+coverage
+
+.idea
+.vscode
+
+.DS_Store
+Thumbs.db
+
+*.log
+
+.env
+apps/web/.env.local
+apps/api/.env
+
+apps/api/target
+# TypeScript
+*.tsbuildinfo
+
+# Next.js static export
+out/
+
+# Java artifacts
+*.jar
+*.war
+HELP.md
+
+# Additional env patterns
+.env.*.local
+
+# Windows
+desktop.ini
+
+# Turborepo (if adopted later)
+.turbo

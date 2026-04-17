@@ -1,0 +1,49 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { BlogHighlightsSection } from "@/components/sections/BlogHighlightsSection";
+import { HomeHero } from "@/components/sections/HomeHero";
+import { ProductCardsSection } from "@/components/sections/ProductCardsSection";
+import { StatsSection } from "@/components/sections/StatsSection";
+import { WhyKronSection } from "@/components/sections/WhyKronSection";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { getBlogList, getPublicPage } from "@/lib/api/public-content";
+import { mockAwards, mockStats } from "@/lib/api/mock-content";
+import { buildMetadata } from "@/lib/seo";
+import { websiteSchema } from "@/lib/schema";
+import { isValidLocale } from "@/lib/i18n";
+import type { Locale } from "@/types/content";
+
+interface HomePageProps {
+  params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: HomePageProps): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isValidLocale(locale)) return {};
+  const page = await getPublicPage(locale as Locale, "home");
+  return buildMetadata(page.seo, locale as Locale);
+}
+
+export default async function HomePage({ params }: HomePageProps) {
+  const { locale } = await params;
+  if (!isValidLocale(locale)) notFound();
+
+  const l = locale as Locale;
+  const posts = await getBlogList(l);
+
+  return (
+    <>
+      {/*
+        WebSite schema placed on the homepage only — includes SearchAction
+        for potential sitelinks search box. Organization schema is already
+        injected by the locale layout.
+      */}
+      <JsonLd data={websiteSchema(l)} />
+      <HomeHero locale={l} />
+      <ProductCardsSection locale={l} />
+      <WhyKronSection locale={l} awards={mockAwards} />
+      <StatsSection locale={l} stats={mockStats} />
+      <BlogHighlightsSection locale={l} posts={posts} />
+    </>
+  );
+}

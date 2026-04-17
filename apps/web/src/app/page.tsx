@@ -1,0 +1,6 @@
+import { redirect } from "next/navigation";
+import { getDefaultLocale } from "@/lib/i18n";
+
+export default function IndexRedirectPage(): null {
+  redirect(`/${getDefaultLocale()}`);
+}
