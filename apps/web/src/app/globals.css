@@ -1194,7 +1194,32 @@ button { font: inherit; cursor: pointer; }
 .form-field input::placeholder,
 .form-field textarea::placeholder { color: var(--gray-400); }
 
+/* Error state — red border on the control */
+.form-field--error input,
+.form-field--error select,
+.form-field--error textarea {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, .1);
+}
+
+/* Inline error text below a field */
+.form-field__error {
+  display: block;
+  font-size: 11.5px;
+  color: #dc2626;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
 .form-full { grid-column: 1 / -1; }
+
+/* Consent wrapper — allows an error message below the checkbox row */
+.form-consent-wrapper { margin-block: 14px; }
+.form-consent-wrapper--error .form-consent { opacity: 0.9; }
+.form-consent-wrapper .form-field__error { margin-top: 6px; }
+
+/* Band form status (compact single-message error/success) */
+.band-form__status { margin-block: 8px; }
 
 .form-consent {
   display: flex;
@@ -1203,7 +1228,6 @@ button { font: inherit; cursor: pointer; }
   font-size: 12.5px;
   color: var(--gray-600);
   line-height: 1.5;
-  margin-block: 14px;
 }
 .form-consent input[type="checkbox"] {
   width: 16px;

@@ -33,3 +33,11 @@ app:
     access-token-minutes: 60
   rate-limit:
     max-requests-per-minute: 120
+  forms:
+    rate-limit:
+      # Maximum form submissions per IP address per hour (honeypot bypasses are not counted).
+      max-per-hour: ${FORM_RATE_LIMIT_PER_HOUR:5}
+  webhook:
+    form-submission:
+      # Set to a non-empty URL to enable outbound webhook delivery on each new submission.
+      url: ${FORM_WEBHOOK_URL:}

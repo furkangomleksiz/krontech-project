@@ -25,6 +25,9 @@ public class FormSubmission extends BaseEntity {
     private String company;
 
     @Column(length = 200)
+    private String department;
+
+    @Column(length = 200)
     private String phone;
 
     @Column(length = 200)
@@ -74,6 +77,14 @@ public class FormSubmission extends BaseEntity {
 
     public void setCompany(String company) {
         this.company = company;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
     }
 
     public String getPhone() {

@@ -1,5 +1,6 @@
 package com.krontech.api.common.api;
 
+import com.krontech.api.forms.exception.FormSubmissionLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ValidationException;
 import java.time.Instant;
@@ -15,6 +16,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        // Return the first constraint violation message so the frontend can display it.
         String message = ex.getBindingResult().getAllErrors().stream()
                 .findFirst()
                 .map(error -> error.getDefaultMessage() == null ? "Validation error" : error.getDefaultMessage())
@@ -25,6 +27,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ValidationException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI());
+    }
+
+    @ExceptionHandler(FormSubmissionLimitException.class)
+    public ResponseEntity<ApiError> handleFormLimit(FormSubmissionLimitException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request.getRequestURI());
     }
 
     @ExceptionHandler(BadCredentialsException.class)
