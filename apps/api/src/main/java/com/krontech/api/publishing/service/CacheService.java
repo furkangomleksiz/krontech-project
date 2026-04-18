@@ -52,16 +52,19 @@ public class CacheService {
 
     private final CacheManager cacheManager;
     private final RestClient restClient;
+    private final String webAppUrl;
+    private final String revalidateSecret;
 
-    @Value("${app.web.url:}")
-    private String webAppUrl;
-
-    @Value("${app.web.revalidate-secret:}")
-    private String revalidateSecret;
-
-    public CacheService(CacheManager cacheManager) {
+    public CacheService(
+            CacheManager cacheManager,
+            RestClient restClient,
+            @Value("${app.web.url:}") String webAppUrl,
+            @Value("${app.web.revalidate-secret:}") String revalidateSecret
+    ) {
         this.cacheManager = cacheManager;
-        this.restClient = RestClient.create();
+        this.restClient = restClient;
+        this.webAppUrl = webAppUrl;
+        this.revalidateSecret = revalidateSecret;
     }
 
     /**

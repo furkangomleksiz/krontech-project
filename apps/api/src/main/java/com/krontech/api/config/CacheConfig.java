@@ -7,6 +7,7 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.web.client.RestClient;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -50,6 +51,15 @@ public class CacheConfig {
      * {@code perCacheConfigs}.
      */
     private static final Duration DEFAULT_TTL = Duration.ofMinutes(10);
+
+    /**
+     * Shared RestClient for on-demand ISR revalidation calls from {@link com.krontech.api.publishing.service.CacheService}.
+     * A single bean keeps connection pool and timeout settings in one place.
+     */
+    @Bean
+    public RestClient revalidationRestClient() {
+        return RestClient.create();
+    }
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
