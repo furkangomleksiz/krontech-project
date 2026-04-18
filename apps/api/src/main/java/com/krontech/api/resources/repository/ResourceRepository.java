@@ -6,6 +6,7 @@ import com.krontech.api.resources.entity.ResourceItem;
 import com.krontech.api.resources.entity.ResourceType;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -15,4 +16,15 @@ public interface ResourceRepository extends JpaRepository<ResourceItem, UUID> {
 
     List<ResourceItem> findByLocaleAndStatusAndResourceType(
             LocaleCode locale, PublishStatus status, ResourceType resourceType, Pageable pageable);
+
+    // Admin queries — paginated, all statuses
+    Page<ResourceItem> findAllByLocale(LocaleCode locale, Pageable pageable);
+
+    Page<ResourceItem> findAllByStatus(PublishStatus status, Pageable pageable);
+
+    Page<ResourceItem> findAllByLocaleAndStatus(LocaleCode locale, PublishStatus status, Pageable pageable);
+
+    Page<ResourceItem> findAllByResourceType(ResourceType resourceType, Pageable pageable);
+
+    Page<ResourceItem> findAllByLocaleAndResourceType(LocaleCode locale, ResourceType resourceType, Pageable pageable);
 }

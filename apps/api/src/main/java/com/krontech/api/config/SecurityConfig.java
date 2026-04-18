@@ -4,6 +4,7 @@ import com.krontech.api.auth.security.JwtAuthenticationFilter;
 import com.krontech.api.infrastructure.ratelimit.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,6 +28,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // Delegate CORS pre-flight and header handling to WebConfig.addCorsMappings().
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -34,7 +37,7 @@ public class SecurityConfig {
                                 "/api/v1/public/**",
                                 "/api/v1/preview/**",
                                 "/api/v1/forms/**",
-                                "/api/v1/auth/**",
+                                "/api/v1/auth/login",
                                 "/swagger-ui/**",
                                 "/api-docs/**"
                         )

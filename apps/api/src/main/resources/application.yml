@@ -27,6 +27,11 @@ springdoc:
     path: /swagger-ui
 
 app:
+  cors:
+    # Comma-separated list of allowed origins for browser cross-origin requests.
+    # Override with CORS_ALLOWED_ORIGINS env var in each environment.
+    # Production: set to the actual domain(s) of the web app.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   auth:
     issuer: ${JWT_ISSUER:krontech-api}
     secret: ${JWT_SECRET:replace_with_a_long_random_secret}
@@ -41,3 +46,6 @@ app:
     form-submission:
       # Set to a non-empty URL to enable outbound webhook delivery on each new submission.
       url: ${FORM_WEBHOOK_URL:}
+  publishing:
+    # Interval in ms between scheduled-publish checks. Default: 60 seconds.
+    scheduler-delay-ms: ${PUBLISHING_SCHEDULER_DELAY_MS:60000}

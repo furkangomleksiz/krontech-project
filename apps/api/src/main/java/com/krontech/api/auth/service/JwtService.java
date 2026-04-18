@@ -42,6 +42,11 @@ public class JwtService {
                 .compact();
     }
 
+    /** Returns the expiry instant for a token issued right now. */
+    public Instant tokenExpiresAt() {
+        return Instant.now().plusSeconds(tokenMinutes * 60);
+    }
+
     public Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)

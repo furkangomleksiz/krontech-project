@@ -49,6 +49,46 @@ This repository is a first-pass, buildable foundation for a production-oriented,
    ```
    Frontend available at `http://localhost:3000`
 
+## Admin CMS
+
+The admin UI lives inside `apps/web` at `/admin/**`.
+
+- Login: `http://localhost:3000/admin/login`
+- Dashboard: `http://localhost:3000/admin`
+
+Use the bootstrap credentials above to sign in. All write operations are gated by the backend JWT — the client-side route guard is convenience only.
+
+### Admin routes
+
+| Route | Description |
+|---|---|
+| `/admin/login` | Sign in |
+| `/admin` | Dashboard |
+| `/admin/pages` | Pages — list, create, edit, add/reorder content blocks |
+| `/admin/blog` | Blog posts |
+| `/admin/products` | Products |
+| `/admin/resources` | Resources (whitepapers, datasheets, etc.) |
+| `/admin/media` | Media library — register asset metadata |
+| `/admin/forms` | Form submissions (read-only, export via API) |
+| `/admin/users` | User management (ADMIN role only) |
+
+### Preview
+
+In any content edit form, click **Get Preview Link** to rotate the preview token and generate a preview URL. The URL opens at `/preview?token={uuid}` and renders the page regardless of publish status. Preview links are token-scoped and invalidated when the token is rotated again.
+
+### Local development — frontend ↔ API
+
+All admin browser requests go from `http://localhost:3000` (Next.js) to `http://localhost:8080` (Spring Boot). CORS is configured via the `CORS_ALLOWED_ORIGINS` environment variable (default: `http://localhost:3000`). Copy `.env.example` to `.env` — the defaults work out of the box for local development.
+
+If you run the frontend on a different port, update `.env`:
+```
+CORS_ALLOWED_ORIGINS=http://localhost:3001
+```
+And set `NEXT_PUBLIC_API_BASE_URL` in the web app's `.env.local`:
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
+```
+
 ## Public Routes
 
 - `/tr` and `/en` locale roots

@@ -25,4 +25,16 @@ public final class SeoMapper {
                 seo.getStructuredDataJson()
         );
     }
+
+    /** Applies a {@link com.krontech.api.seo.dto.SeoRequest} onto an embedded {@link SeoMetadata} object. */
+    public static void applyRequest(SeoMetadata seo, com.krontech.api.seo.dto.SeoRequest request) {
+        seo.setMetaTitle(request.metaTitle());
+        seo.setMetaDescription(request.metaDescription());
+        seo.setCanonicalPath(request.canonicalPath());
+        seo.setNoIndex(request.noIndex());
+        seo.setOgTitle(request.ogTitle());
+        seo.setOgDescription(request.ogDescription());
+        seo.setOgImageKey(request.ogImageKey());
+        seo.setStructuredDataJson(request.structuredDataJson());
+    }
 }
