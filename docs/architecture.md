@@ -30,7 +30,7 @@ Modules and their current status:
 | `forms` | Active | `FormSubmission` entity/service/controller + validation, rate limit, webhook event |
 | `publishing` | Active | Full state machine (DRAFT/SCHEDULED/PUBLISHED); `CacheService` Redis invalidation; `ScheduledPublishingService` auto-promotion; preview token rotation |
 | `media` | Active | `MediaAsset` entity; `ObjectStorageClient` interface + AWS SDK v2 S3 implementation; `POST /admin/media/upload` multipart endpoint; metadata CRUD; auto bucket creation on startup |
-| `redirects` | Partial | `RedirectRule` entity + repository; serving middleware deferred |
+| `redirects` | Active | `RedirectRule` entity/repository; `RedirectService`; public bulk-load + single-resolve endpoints; admin CRUD; Next.js Edge Middleware applies rules at request time |
 | `audit` | Active | `AuditLog` entity + `AuditService` (auto-resolves actor); `GET /admin/audit` (ADMIN only) |
 | `seo` | Shared type | `SeoMetadata` `@Embeddable` + `SeoMapper` + `SeoRequest`/`SeoResponse` DTOs |
 | `localization` | Shared type | `LocaleCode` enum used across modules |
@@ -85,7 +85,8 @@ JWT stored in `localStorage` after login. `AdminShell` (a client component wrapp
 | `/admin/media` | Media library (grid + table view) |
 | `/admin/media/new` | Register asset metadata (post S3 upload) |
 | `/admin/media/[id]` | Edit asset metadata + preview |
-| `/admin/forms` | Form submission list + detail modal + status workflow |
+| `/admin/forms` | Form submission list + detail modal (read-only) |
+| `/admin/redirects` | Redirect rule management — create, edit, toggle, delete |
 | `/admin/users` | User management — ADMIN role only |
 
 **Key components:**
@@ -116,6 +117,36 @@ Role boundaries enforced via `@PreAuthorize` at method level:
 - `GET/POST/PUT/PATCH` on content: ADMIN or EDITOR
 - All `/admin/users/**`: ADMIN only
 - Form submission list/export: ADMIN only
+
+## Redirect and SEO migration support
+
+See [`docs/seo-migration.md`](./seo-migration.md) for the full migration playbook.
+
+### Middleware redirect flow
+
+```
+Every public request
+  │
+  ▼
+Next.js Edge Middleware (src/middleware.ts)
+  ├─ "/"  →  301 → "/tr"          (root always redirects to default locale)
+  ├─ Rule cache warm?
+  │      ├─ yes: scan in-memory rule list
+  │      └─ no:  fetch GET /api/v1/public/redirects, cache 5 min
+  ├─ Rule matched  →  301/302 to targetPath  (before any rendering)
+  └─ No match     →  set x-locale header, pass through
+```
+
+Rules stored in `redirect_rules` (PostgreSQL) are managed via `/admin/redirects`.
+Active rules are cached for 5 minutes in the Edge worker process; restart the Next.js
+server to flush the cache immediately (e.g. on migration day).
+
+### Canonical URL strategy
+
+- Every published page has an explicit `<link rel="canonical">` derived from `SeoMetadata.canonicalPath`.
+- Locale variants are linked via `hreflang` alternates (TR + EN + x-default).
+- The `(slug, locale)` unique constraint on `pages` prevents two active records from
+  sharing the same URL, eliminating accidental duplicate content at the data layer.
 
 ## Media and object storage
 

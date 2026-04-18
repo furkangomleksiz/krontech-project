@@ -51,6 +51,29 @@ actual `publishedAt` dates so search engine crawlers can prioritise recently
 published content. When on-demand revalidation is added, `sitemap.xml` should be
 included in the `revalidatePath()` call set after each content publish.
 
+## Redirect rule caching (middleware)
+
+Active redirect rules are cached inside the Next.js Edge Middleware process:
+
+| Layer | TTL | Mechanism |
+|---|---|---|
+| Module-level in-process cache | 5 min | Module variable with `cacheExpiresAt` timestamp |
+| Next.js `fetch` cache | 5 min | `next: { revalidate: 300 }` on the bulk-load fetch |
+
+**On cold start:** the middleware calls `GET /api/v1/public/redirects` synchronously.
+If the API is unreachable, the cache stays empty and no redirect rules fire (fail-open —
+the user sees the page rather than a broken redirect).
+
+**On cache error:** stale rules are preserved and a 30-second penalty is applied before
+the next attempt, preventing thundering herd on a flapping API.
+
+**To invalidate immediately** (e.g. during a migration cutover): restart the Next.js
+process. The first request after restart will re-fetch all active rules.
+
+**Performance note:** the bulk-load endpoint returns only active rules as a flat JSON array
+(no pagination). With typical redirect rule sets (< 500 entries) the payload is < 50 KB
+and the in-process array scan for each request is sub-millisecond.
+
 ## First-pass limits
 
 - Fine-grained cache tag invalidation and queue-driven CDN purge orchestration are deferred

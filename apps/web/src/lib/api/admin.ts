@@ -686,6 +686,73 @@ export function rotatePreviewToken(
   );
 }
 
+// ── Redirects ─────────────────────────────────────────────────────────────────
+
+export interface RedirectRuleItem {
+  id: string;
+  sourcePath: string;
+  targetPath: string;
+  statusCode: 301 | 302;
+  active: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RedirectRuleWriteRequest {
+  sourcePath: string;
+  targetPath: string;
+  statusCode: 301 | 302;
+  active: boolean;
+  notes?: string;
+}
+
+export function listRedirects(params?: {
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<RedirectRuleItem>> {
+  const q = new URLSearchParams();
+  if (params?.page !== undefined) q.set("page", String(params.page));
+  if (params?.size !== undefined) q.set("size", String(params.size));
+  q.set("sort", "sourcePath");
+  return adminFetch<PagedResponse<RedirectRuleItem>>(
+    `/admin/redirects?${q.toString()}`,
+  );
+}
+
+export function getRedirect(id: string): Promise<RedirectRuleItem> {
+  return adminFetch<RedirectRuleItem>(`/admin/redirects/${id}`);
+}
+
+export function createRedirect(
+  body: RedirectRuleWriteRequest,
+): Promise<RedirectRuleItem> {
+  return adminFetch<RedirectRuleItem>("/admin/redirects", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateRedirect(
+  id: string,
+  body: RedirectRuleWriteRequest,
+): Promise<RedirectRuleItem> {
+  return adminFetch<RedirectRuleItem>(`/admin/redirects/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function toggleRedirect(id: string): Promise<RedirectRuleItem> {
+  return adminFetch<RedirectRuleItem>(`/admin/redirects/${id}/toggle`, {
+    method: "PATCH",
+  });
+}
+
+export function deleteRedirect(id: string): Promise<void> {
+  return adminFetch<void>(`/admin/redirects/${id}`, { method: "DELETE" });
+}
+
 // ── Audit Log ─────────────────────────────────────────────────────────────────
 
 export function listAuditLog(params?: {

@@ -150,6 +150,24 @@ Set `objectKey` as `heroImageKey` on any content record to reference this asset.
 | GET | `/api/v1/admin/forms?formType=CONTACT&page=0&size=25` | Paginated list; optional `formType` filter |
 | GET | `/api/v1/admin/forms/export.csv?formType=CONTACT` | CSV export (RFC 4180); optional type filter |
 
+## Public — Redirects (no auth)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/v1/public/redirects` | All active redirect rules as a flat JSON array. Consumed by the Next.js Edge Middleware; cached for 5 min in-process. No pagination. |
+| GET | `/api/v1/public/redirects/resolve?path=/old-path` | Resolves a single path — returns 200 + rule or 404. Useful for server-component debugging. |
+
+## Admin — Redirects (EDITOR + ADMIN; DELETE requires ADMIN)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET    | `/api/v1/admin/redirects?page=0&size=50` | Paginated list, all statuses, sorted by sourcePath |
+| GET    | `/api/v1/admin/redirects/{id}` | Single rule |
+| POST   | `/api/v1/admin/redirects` | Create rule; 409 if sourcePath already exists |
+| PUT    | `/api/v1/admin/redirects/{id}` | Full update |
+| PATCH  | `/api/v1/admin/redirects/{id}/toggle` | Flip active ↔ inactive (preferred over delete) |
+| DELETE | `/api/v1/admin/redirects/{id}` | **ADMIN only**; prefer deactivation for audit trail |
+
 ## API documentation
 
 - Swagger UI: `http://localhost:8080/swagger-ui`

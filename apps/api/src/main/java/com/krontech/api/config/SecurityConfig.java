@@ -40,6 +40,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/swagger-ui/**",
                                 "/api-docs/**"
+                                // /api/v1/public/redirects/** is covered by /api/v1/public/**
                         )
                         .permitAll()
                         .anyRequest()

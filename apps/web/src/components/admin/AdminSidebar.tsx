@@ -32,6 +32,12 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     ],
   },
   {
+    heading: "Site",
+    items: [
+      { label: "Redirects", href: "/admin/redirects", icon: "↩" },
+    ],
+  },
+  {
     heading: "Administration",
     items: [
       {

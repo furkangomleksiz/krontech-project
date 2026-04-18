@@ -26,6 +26,13 @@ public class RedirectRule extends BaseEntity {
     @Column(nullable = false)
     private boolean active = true;
 
+    /**
+     * Free-text explanation of why this redirect exists.
+     * Useful during migrations to document which legacy URL this covers.
+     */
+    @Column(length = 1000)
+    private String notes;
+
     public String getSourcePath() {
         return sourcePath;
     }
@@ -56,5 +63,13 @@ public class RedirectRule extends BaseEntity {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }
