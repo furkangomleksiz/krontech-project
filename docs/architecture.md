@@ -29,7 +29,7 @@ Modules and their current status:
 | `resources` | Active | `ResourceItem extends Page`; public + admin CRUD |
 | `forms` | Active | `FormSubmission` entity/service/controller + validation, rate limit, webhook event |
 | `publishing` | Active | Full state machine (DRAFT/SCHEDULED/PUBLISHED); `CacheService` Redis invalidation; `ScheduledPublishingService` auto-promotion; preview token rotation |
-| `media` | Active | `MediaAsset` entity + `ObjectStorageClient`; admin metadata CRUD (upload deferred) |
+| `media` | Active | `MediaAsset` entity; `ObjectStorageClient` interface + AWS SDK v2 S3 implementation; `POST /admin/media/upload` multipart endpoint; metadata CRUD; auto bucket creation on startup |
 | `redirects` | Partial | `RedirectRule` entity + repository; serving middleware deferred |
 | `audit` | Active | `AuditLog` entity + `AuditService` (auto-resolves actor); `GET /admin/audit` (ADMIN only) |
 | `seo` | Shared type | `SeoMetadata` `@Embeddable` + `SeoMapper` + `SeoRequest`/`SeoResponse` DTOs |
@@ -116,6 +116,51 @@ Role boundaries enforced via `@PreAuthorize` at method level:
 - `GET/POST/PUT/PATCH` on content: ADMIN or EDITOR
 - All `/admin/users/**`: ADMIN only
 - Form submission list/export: ADMIN only
+
+## Media and object storage
+
+### Storage abstraction
+
+`ObjectStorageClient` (interface) defines three operations:
+- `buildPublicUrl(objectKey)` — construct the browser-accessible URL for a stored object
+- `upload(objectKey, inputStream, contentType, contentLength)` — write an object to storage
+- `delete(objectKey)` — remove an object from storage (idempotent)
+
+`S3CompatibleObjectStorageClient` implements this interface using **AWS SDK v2** (`software.amazon.awssdk:s3`). It targets MinIO in local development and AWS S3 (or any S3-compatible service) in production. Path-style access is enabled by default (`S3_FORCE_PATH_STYLE=true`) for MinIO compatibility; disable it for real AWS S3.
+
+To swap the storage implementation, add a new `@Component` that implements `ObjectStorageClient` and mark the existing one `@ConditionalOnProperty(...)` or use Spring profiles.
+
+### Upload flow
+
+```
+Browser  ──multipart/form-data──▶  POST /api/v1/admin/media/upload
+                                       │
+                                       ├─ Validate MIME type
+                                       ├─ Generate key: uploads/{year}/{month}/{uuid}.{ext}
+                                       ├─ ObjectStorageClient.upload(key, stream, mime, size)
+                                       │      └─ S3Client.putObject → MinIO / S3
+                                       ├─ MediaAsset record saved in PostgreSQL
+                                       │      (rollback: delete S3 object if DB write fails)
+                                       └─ Return MediaAdminResponse { objectKey, publicUrl, ... }
+```
+
+### Content references
+
+All content entities (`Page`, `BlogPost`, `Product`, `ResourceItem`) store media references as `heroImageKey` — the S3 object key string (`uploads/2026/04/uuid.jpg`). The public URL is resolved at serve time via `objectStorageClient.buildPublicUrl(objectKey)` so that changing the storage endpoint or CDN prefix requires no data migration.
+
+### Bucket initialization
+
+On startup, `S3CompatibleObjectStorageClient.ensureBucketExists()` calls `HeadBucket`. If the bucket is missing it creates it and applies a public-read bucket policy. Failures are non-fatal — the application starts even if MinIO is temporarily unreachable; upload requests return HTTP 503 until storage is available.
+
+The `minio-init` service in `docker-compose.yml` performs the same initialization earlier (before the API starts) via `mc`, providing faster bucket availability in local dev.
+
+### Local dev setup
+
+```bash
+docker compose up -d           # starts Postgres, Redis, MinIO, minio-init
+# MinIO Console: http://localhost:9001  (credentials: minio / minio123)
+# MinIO S3 API:  http://localhost:9000
+```
 
 ## Why Spring Boot for backend
 

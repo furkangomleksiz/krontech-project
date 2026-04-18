@@ -92,9 +92,50 @@
 |---|---|---|
 | GET    | `/api/v1/admin/media?mimeType=image&page=0&size=25` | Paginated; optional mimeType prefix filter |
 | GET    | `/api/v1/admin/media/{id}` | Full record with resolved `publicUrl` |
-| POST   | `/api/v1/admin/media` | Register a file already uploaded to S3/MinIO |
+| **POST**   | **`/api/v1/admin/media/upload`** | **Upload a file + register metadata. `multipart/form-data` with `file` part (required) and `altText` part (optional). Returns full `MediaAdminResponse` including `objectKey` and `publicUrl`.** |
+| POST   | `/api/v1/admin/media` | Register metadata for a file already in S3/MinIO (import flow) |
 | PATCH  | `/api/v1/admin/media/{id}` | Update alt text and/or dimensions |
-| DELETE | `/api/v1/admin/media/{id}` | **ADMIN only**; removes metadata record only (S3 object not deleted) |
+| DELETE | `/api/v1/admin/media/{id}` | **ADMIN only**; removes metadata only (S3 object preserved) |
+| DELETE | `/api/v1/admin/media/{id}?deleteFile=true` | **ADMIN only**; removes metadata **and** S3 object |
+
+### Upload request example
+
+```http
+POST /api/v1/admin/media/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="file"; filename="hero.jpg"
+Content-Type: image/jpeg
+
+<binary file content>
+------boundary
+Content-Disposition: form-data; name="altText"
+
+KronTech office building hero image
+------boundary--
+```
+
+### Upload response example
+
+```json
+{
+  "id": "a3b1c2d4-...",
+  "objectKey": "uploads/2026/04/a3b1c2d4-e5f6.jpg",
+  "publicUrl": "http://localhost:9000/media/uploads/2026/04/a3b1c2d4-e5f6.jpg",
+  "fileName": "hero.jpg",
+  "mimeType": "image/jpeg",
+  "sizeBytes": 204800,
+  "altText": "KronTech office building hero image",
+  "width": null,
+  "height": null,
+  "createdAt": "2026-04-16T12:00:00Z",
+  "updatedAt": "2026-04-16T12:00:00Z"
+}
+```
+
+Set `objectKey` as `heroImageKey` on any content record to reference this asset.
 
 ## Admin — Publishing
 

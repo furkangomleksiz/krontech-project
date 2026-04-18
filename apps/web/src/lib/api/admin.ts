@@ -500,6 +500,36 @@ export function deleteResource(id: string): Promise<void> {
 
 // ── Media ─────────────────────────────────────────────────────────────────────
 
+// ── Media upload ──────────────────────────────────────────────────────────────
+// Uses a raw fetch (not adminFetch) because the Content-Type must be multipart/form-data
+// with a browser-generated boundary — we must NOT set Content-Type manually here.
+
+export function uploadMedia(file: File, altText?: string): Promise<MediaAdminItem> {
+  const token = getStoredToken();
+  const formData = new FormData();
+  formData.append("file", file);
+  if (altText?.trim()) formData.append("altText", altText.trim());
+
+  return fetch(`${API_BASE}/admin/media/upload`, {
+    method: "POST",
+    // Only add Authorization — no Content-Type, the browser sets it with the boundary.
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  }).then(async (res) => {
+    if (!res.ok) {
+      let message = `HTTP ${res.status}`;
+      try {
+        const body = await res.json();
+        if (body?.message) message = body.message;
+      } catch { /* ignore */ }
+      throw new AdminApiError(res.status, message);
+    }
+    return res.json() as Promise<MediaAdminItem>;
+  });
+}
+
+// ── Media CRUD ────────────────────────────────────────────────────────────────
+
 export function listMedia(params?: {
   page?: number;
   size?: number;

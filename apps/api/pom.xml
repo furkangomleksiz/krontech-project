@@ -19,7 +19,21 @@
 
     <properties>
         <java.version>17</java.version>
+        <aws.sdk.version>2.25.16</aws.sdk.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- AWS SDK v2 BOM — manages consistent versions across all SDK modules -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -68,6 +82,16 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            AWS SDK v2 S3 client.
+            Works with MinIO (local dev / Docker Compose) and AWS S3 (production)
+            via path-style access and endpoint override. Version managed by the BOM above.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

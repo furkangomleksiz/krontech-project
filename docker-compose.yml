@@ -35,10 +35,38 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minio}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minio123}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"   # S3 API — used by the Spring Boot API for uploads
+      - "9001:9001"   # MinIO Console — http://localhost:9001
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Creates the media bucket and applies a public-read policy on first start.
+  # The Spring Boot API also runs bucket init via @PostConstruct, so this container
+  # is optional but speeds things up and ensures the bucket exists before the API starts.
+  minio-init:
+    image: minio/mc:latest
+    container_name: krontech-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minio}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minio123}
+      S3_BUCKET: ${S3_BUCKET:-media}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
+        mc mb --ignore-existing local/$$S3_BUCKET &&
+        mc anonymous set public local/$$S3_BUCKET &&
+        echo 'Bucket $$S3_BUCKET is ready.' &&
+        exit 0
+      "
+    restart: "no"
 
 volumes:
   postgres_data:
