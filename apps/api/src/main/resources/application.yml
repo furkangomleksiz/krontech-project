@@ -70,3 +70,14 @@ app:
   publishing:
     # Interval in ms between scheduled-publish checks. Default: 60 seconds.
     scheduler-delay-ms: ${PUBLISHING_SCHEDULER_DELAY_MS:60000}
+  web:
+    # Base URL of the Next.js frontend.
+    # Used by CacheService to call the on-demand ISR revalidation endpoint.
+    # In local dev: http://localhost:3000
+    # In Docker Compose (API in container): http://host.docker.internal:3000
+    # In production: https://www.krontech.com.tr
+    url: ${WEB_APP_URL:http://localhost:3000}
+    # Shared secret for POST /api/revalidate.
+    # Must match the REVALIDATE_SECRET env var set in the Next.js app.
+    # If blank, frontend revalidation is skipped (Redis eviction still runs).
+    revalidate-secret: ${REVALIDATE_SECRET:}

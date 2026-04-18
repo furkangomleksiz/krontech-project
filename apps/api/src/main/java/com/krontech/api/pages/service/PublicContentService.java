@@ -15,6 +15,7 @@ import com.krontech.api.pages.repository.PageRepository;
 import com.krontech.api.publishing.PublishStatus;
 import com.krontech.api.seo.SeoMapper;
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,13 @@ public class PublicContentService {
         this.objectStorageClient = objectStorageClient;
     }
 
+    /**
+     * Returns the published page for the given slug and locale.
+     * Result is cached in Redis for 10 minutes under the {@code pages} cache.
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictContent}
+     * on any publish/unpublish transition.
+     */
+    @Cacheable(value = "pages", key = "#slug + ':' + #locale")
     public PublicPageResponse getPage(String slug, String locale) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
         Page page = pageRepository.findBySlugAndLocaleAndStatus(slug, localeCode, PublishStatus.PUBLISHED)
@@ -47,6 +55,14 @@ public class PublicContentService {
         return mapToPageResponse(page);
     }
 
+    /**
+     * Returns the published blog post list for the given locale.
+     * Only the default page (index 0) response is cached under the {@code blog-list} cache
+     * (TTL 10 min). Paginated requests beyond page 0 bypass the cache.
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictContent}
+     * on any blog post publish/unpublish transition.
+     */
+    @Cacheable(value = "blog-list", key = "#locale", condition = "#page == 0")
     public List<BlogPreviewResponse> getBlogList(String locale, int page, int size) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
         var pageable = PageRequest.of(page, size, Sort.by("publishedAt").descending());
@@ -57,6 +73,12 @@ public class PublicContentService {
                 .toList();
     }
 
+    /**
+     * Returns the published blog post detail for the given slug and locale.
+     * Cached in Redis for 20 minutes under the {@code blog-detail} cache.
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictContent}.
+     */
+    @Cacheable(value = "blog-detail", key = "#slug + ':' + #locale")
     public BlogDetailResponse getBlogDetail(String slug, String locale) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
         BlogPost post = blogPostRepository.findBySlugAndLocaleAndStatus(slug, localeCode, PublishStatus.PUBLISHED)
