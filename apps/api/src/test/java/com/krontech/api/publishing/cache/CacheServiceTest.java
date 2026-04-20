@@ -50,15 +50,17 @@ class CacheServiceTest {
 
         verify(cacheManager).getCache("pages");
         verify(cacheManager).getCache("blog-list");
+        verify(cacheManager).getCache("blog-highlights");
         verify(cacheManager).getCache("blog-detail");
         verify(cacheManager).getCache("resource-list");
-        verify(cacheManager).getCache("product-list");
+        verify(cacheManager, times(2)).getCache("product-list");
         verify(cacheManager).getCache("page-list");
 
         // "kron-pam:tr" is used as the key for both "pages" and "blog-detail" (2 times)
         verify(mockCache, times(2)).evict("kron-pam:tr");
-        // "tr" is used as the key for "blog-list", "resource-list", and "product-list" (3 times)
-        verify(mockCache, times(3)).evict("tr");
+        // "tr" is used as the key for "blog-list", "blog-highlights", "resource-list", and "product-list" (4 times)
+        verify(mockCache, times(4)).evict("tr");
+        verify(mockCache, times(1)).evict("en"); // product-list sibling locale
         verify(mockCache, times(1)).clear();
     }
 
@@ -70,7 +72,8 @@ class CacheServiceTest {
 
         verify(cacheManager).getCache("page-list");
         verify(mockCache, times(2)).evict("home:en");
-        verify(mockCache, times(3)).evict("en");
+        verify(mockCache, times(4)).evict("en");
+        verify(mockCache, times(1)).evict("tr"); // product-list sibling locale
         verify(mockCache, times(1)).clear();
     }
 

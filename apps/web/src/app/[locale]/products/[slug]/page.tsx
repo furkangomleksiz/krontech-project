@@ -12,7 +12,7 @@ import { mockProductFeatures } from "@/lib/api/mock-content";
 import { buildMetadata } from "@/lib/seo";
 import { softwareProductSchema, breadcrumbSchema } from "@/lib/schema";
 import { isValidLocale, canonicalUrl, getSupportedLocales, productSlugs } from "@/lib/i18n";
-import type { Locale, ProductDetailTabSection } from "@/types/content";
+import type { Locale, ProductDetail, ProductDetailTabSection } from "@/types/content";
 
 const ProductDetailTabs = dynamic(() => import("@/components/sections/ProductDetailTabs"), {
   loading: () => (
@@ -57,9 +57,12 @@ export async function generateMetadata({ params }: ProductDetailProps): Promise<
   const { locale, slug } = await params;
   if (!isValidLocale(locale)) return {};
 
-  const product = await getCachedPublicProduct(locale as Locale, slug);
-  if (product) {
-    return buildMetadata(productPublicSeoToSeoFields(product.seo), locale as Locale);
+  const res = await getCachedPublicProduct(locale as Locale, slug);
+  if (res.kind === "ok") {
+    return buildMetadata(productPublicSeoToSeoFields(res.product.seo), locale as Locale);
+  }
+  if (res.kind === "not_found") {
+    notFound();
   }
 
   const page = await getPublicPage(locale as Locale, slug);
@@ -71,9 +74,14 @@ export default async function ProductDetailPage({ params }: ProductDetailProps) 
   if (!isValidLocale(locale)) notFound();
 
   const l = locale as Locale;
-  const product = await getCachedPublicProduct(l, slug);
+  const productRes = await getCachedPublicProduct(l, slug);
 
-  if (product) {
+  if (productRes.kind === "not_found") {
+    notFound();
+  }
+
+  if (productRes.kind === "ok") {
+    const product: ProductDetail = productRes.product;
     const productName = product.title;
     const productDescription = product.summary || product.seo.description;
     const productUrl = canonicalUrl(l, `/products/${slug}`);

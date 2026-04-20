@@ -82,12 +82,20 @@ export function CmsPagesHighlightsSection({ locale, pages }: CmsPagesHighlightsS
               const href = publicPageDetailHref(locale, p.pageType, p.slug);
               const dateStr = formatPublishedDate(p.publishedAt, locale);
               const chip = pageTypeChip(p.pageType, locale);
+              const docThumb =
+                p.pageType.trim().toLowerCase().replace(/_/g, "-") === "resource";
+              const thumbSrc = p.heroImageUrl ?? p.previewImageUrl;
               return (
                 <article className="blog-highlight-strip" key={p.slug}>
                   <Link href={href} tabIndex={-1} aria-hidden="true">
                     <div className="blog-highlight-strip__image">
-                      {p.heroImageUrl ? (
-                        <img src={p.heroImageUrl} alt="" loading="lazy" />
+                      {thumbSrc ? (
+                        <img
+                          src={thumbSrc}
+                          alt=""
+                          loading="lazy"
+                          className={docThumb ? "blog-highlight-strip__img--doc" : undefined}
+                        />
                       ) : null}
                     </div>
                   </Link>

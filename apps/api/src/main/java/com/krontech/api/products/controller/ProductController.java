@@ -38,7 +38,10 @@ public class ProductController {
             @PathVariable String slug,
             @RequestParam(defaultValue = "en") @Pattern(regexp = "^(tr|en)$") String locale
     ) {
-        return productService.getProduct(slug, locale);
+        return productService
+                .getPublishedProduct(slug, locale)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Product not found or not published."));
     }
 
     /** Published sibling slug for locale switching when TR/EN products share {@code contentGroupId}. */

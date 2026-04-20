@@ -39,6 +39,8 @@ export interface PublicPageListItem {
   title: string;
   summary: string;
   heroImageUrl: string | null;
+  /** Resource PDF first-page preview (same as public resources list); use after `heroImageUrl`. */
+  previewImageUrl: string | null;
   pageType: string;
   publishedAt: string | null;
 }

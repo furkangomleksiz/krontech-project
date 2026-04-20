@@ -9,9 +9,11 @@ import com.krontech.api.resources.dto.ResourceAdminResponse;
 import com.krontech.api.resources.entity.ResourceItem;
 import com.krontech.api.resources.entity.ResourceType;
 import com.krontech.api.resources.repository.ResourceRepository;
+import com.krontech.api.publishing.service.CacheService;
 import com.krontech.api.seo.SeoMapper;
 import com.krontech.api.seo.dto.SeoRequest;
 import jakarta.transaction.Transactional;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,17 +28,20 @@ public class ResourceAdminService {
     private final ContentBlockRepository contentBlockRepository;
     private final ObjectStorageClient objectStorageClient;
     private final ResourcePdfPreviewService resourcePdfPreviewService;
+    private final CacheService cacheService;
 
     public ResourceAdminService(
             ResourceRepository resourceRepository,
             ContentBlockRepository contentBlockRepository,
             ObjectStorageClient objectStorageClient,
-            ResourcePdfPreviewService resourcePdfPreviewService
+            ResourcePdfPreviewService resourcePdfPreviewService,
+            CacheService cacheService
     ) {
         this.resourceRepository = resourceRepository;
         this.contentBlockRepository = contentBlockRepository;
         this.objectStorageClient = objectStorageClient;
         this.resourcePdfPreviewService = resourcePdfPreviewService;
+        this.cacheService = cacheService;
     }
 
     public Page<ResourceAdminResponse> list(
@@ -86,7 +91,10 @@ public class ResourceAdminService {
         }
         ResourceItem saved = resourceRepository.save(item);
         resourcePdfPreviewService.syncPreviewFromStoredFile(saved);
-        return toResponse(resourceRepository.save(saved));
+        ResourceItem persisted = resourceRepository.save(saved);
+        cacheService.evictContent(
+                persisted.getLocale().name().toLowerCase(Locale.ROOT), persisted.getSlug());
+        return toResponse(persisted);
     }
 
     @Transactional
@@ -109,7 +117,10 @@ public class ResourceAdminService {
         }
         ResourceItem saved = resourceRepository.save(item);
         resourcePdfPreviewService.syncPreviewFromStoredFile(saved);
-        return toResponse(resourceRepository.save(saved));
+        ResourceItem persisted = resourceRepository.save(saved);
+        cacheService.evictContent(
+                persisted.getLocale().name().toLowerCase(Locale.ROOT), persisted.getSlug());
+        return toResponse(persisted);
     }
 
     public void updateSeo(UUID id, SeoRequest request) {
@@ -121,9 +132,12 @@ public class ResourceAdminService {
     @Transactional
     public void delete(UUID id) {
         ResourceItem item = findOrThrow(id);
+        String locale = item.getLocale().name().toLowerCase(Locale.ROOT);
+        String slug = item.getSlug();
         resourcePdfPreviewService.removePreviewObjectIfPresent(item);
         contentBlockRepository.deleteByPage(item);
         resourceRepository.delete(item);
+        cacheService.evictContent(locale, slug);
     }
 
     private void validateFileOrUrl(ResourceAdminRequest request) {

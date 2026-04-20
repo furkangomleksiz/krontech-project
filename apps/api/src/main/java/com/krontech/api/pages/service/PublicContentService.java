@@ -22,10 +22,13 @@ import com.krontech.api.products.entity.Product;
 import com.krontech.api.products.repository.ProductRepository;
 import com.krontech.api.products.service.ProductPublicContentAssembler;
 import com.krontech.api.resources.dto.ResourceResponse;
+import com.krontech.api.resources.entity.ResourceItem;
+import com.krontech.api.resources.repository.ResourceRepository;
 import com.krontech.api.publishing.PublishStatus;
 import com.krontech.api.seo.SeoMapper;
 import java.util.List;
 import java.util.Optional;
+import org.hibernate.Hibernate;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -40,6 +43,7 @@ public class PublicContentService {
     private final ProductRepository productRepository;
     private final ProductPublicContentAssembler productPublicContentAssembler;
     private final ObjectStorageClient objectStorageClient;
+    private final ResourceRepository resourceRepository;
 
     public PublicContentService(
             PageRepository pageRepository,
@@ -48,7 +52,8 @@ public class PublicContentService {
             ContentBlockRepository contentBlockRepository,
             ProductRepository productRepository,
             ProductPublicContentAssembler productPublicContentAssembler,
-            ObjectStorageClient objectStorageClient
+            ObjectStorageClient objectStorageClient,
+            ResourceRepository resourceRepository
     ) {
         this.pageRepository = pageRepository;
         this.blogPostRepository = blogPostRepository;
@@ -57,6 +62,7 @@ public class PublicContentService {
         this.productRepository = productRepository;
         this.productPublicContentAssembler = productPublicContentAssembler;
         this.objectStorageClient = objectStorageClient;
+        this.resourceRepository = resourceRepository;
     }
 
     /**
@@ -92,18 +98,42 @@ public class PublicContentService {
     }
 
     private PublicPageListItemResponse mapToPageListItem(Page page) {
-        String heroImageUrl = page.getHeroImageKey() != null
-                ? objectStorageClient.buildPublicUrl(page.getHeroImageKey())
-                : null;
         return new PublicPageListItemResponse(
                 page.getSlug(),
                 page.getLocale().name().toLowerCase(),
                 page.getTitle(),
                 page.getSummary(),
-                heroImageUrl,
+                resolvePageListHeroUrl(page),
                 page.getPageType(),
-                page.getPublishedAt()
+                page.getPublishedAt(),
+                resolveResourceListPreviewUrl(page)
         );
+    }
+
+    private String resolvePageListHeroUrl(Page page) {
+        return page.getHeroImageKey() != null ? objectStorageClient.buildPublicUrl(page.getHeroImageKey()) : null;
+    }
+
+    /**
+     * PDF first-page preview for resources — same source as {@link ResourceResponse#previewImageUrl()}.
+     * Uses {@link ResourceRepository} when the polymorphic {@code Page} reference is not a loaded
+     * {@link ResourceItem} instance (so the homepage strip stays aligned with the resource detail page).
+     */
+    private String resolveResourceListPreviewUrl(Page page) {
+        Page concrete = Hibernate.unproxy(page, Page.class);
+        if (concrete instanceof ResourceItem resource && resource.getFilePreviewImageKey() != null) {
+            return objectStorageClient.buildPublicUrl(resource.getFilePreviewImageKey());
+        }
+        String pageType = page.getPageType();
+        if (pageType != null && "resource".equalsIgnoreCase(pageType.trim())) {
+            return resourceRepository
+                    .findById(page.getId())
+                    .map(ResourceItem::getFilePreviewImageKey)
+                    .filter(java.util.Objects::nonNull)
+                    .map(objectStorageClient::buildPublicUrl)
+                    .orElse(null);
+        }
+        return null;
     }
 
     /**

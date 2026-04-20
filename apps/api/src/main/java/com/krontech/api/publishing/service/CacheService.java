@@ -3,6 +3,7 @@ package com.krontech.api.publishing.service;
 import com.krontech.api.pages.entity.Page;
 import com.krontech.api.pages.repository.PageRepository;
 import jakarta.annotation.PostConstruct;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -54,6 +56,11 @@ public class CacheService {
 
     private static final Logger log = LoggerFactory.getLogger(CacheService.class);
 
+    /** Retries smooth over Docker Compose races (API publishes before Next.js accepts TCP). */
+    private static final int REVALIDATE_MAX_ATTEMPTS = 4;
+
+    private static final long REVALIDATE_RETRY_MS = 400L;
+
     private final CacheManager cacheManager;
     private final RestClient restClient;
     private final PageRepository pageRepository;
@@ -82,6 +89,15 @@ public class CacheService {
                             + "(must match the Next.js REVALIDATE_SECRET). "
                             + "Until then, the public site may show stale HTML until the Next.js ISR TTL expires "
                             + "(e.g. up to 2 h for blog detail). Redis cache eviction still runs on publish/save.");
+            log.warn(
+                    "revalidation_config webAppUrlConfigured={} revalidateSecretConfigured={}",
+                    !webAppUrl.isBlank(),
+                    !revalidateSecret.isBlank());
+        } else {
+            log.info(
+                    "revalidation_config enabled webAppHost={} revalidateSecretLength={}",
+                    safeHostForLog(webAppUrl),
+                    revalidateSecret.length());
         }
     }
 
@@ -96,14 +112,19 @@ public class CacheService {
      * @param slug   the content slug, e.g. {@code "kron-pam"} or {@code "my-blog-post"}
      */
     public void evictContent(String locale, String slug) {
+        log.info("content_cache_eviction_started locale={} slug={}", locale, slug);
         // 1. Evict from Redis cache
         evictFromCache("pages",         slug + ":" + locale);
         evictFromCache("blog-list",     locale);
         evictFromCache("blog-highlights", locale);
         evictFromCache("blog-detail",   slug + ":" + locale);
         evictFromCache("resource-list", locale);
-        evictFromCache("product-list", locale);
+        // Product list is keyed only by locale; evict both so a corrupt or stale sibling
+        // (e.g. legacy Redis JSON on "tr" while an editor only touches "en") is always cleared.
+        evictFromCache("product-list", "tr");
+        evictFromCache("product-list", "en");
         clearCacheFully("page-list");
+        log.info("content_cache_eviction_finished locale={} slug={}", locale, slug);
 
         // 2. Trigger Next.js on-demand ISR revalidation (async, non-blocking)
         List<String> paths = List.of(
@@ -112,12 +133,28 @@ public class CacheService {
                 "/" + locale + "/blog/" + slug,            // blog post detail (if applicable)
                 "/" + locale + "/products",                // product listing
                 "/" + locale + "/products/" + slug,        // product detail (if applicable)
-                "/" + locale + "/resources"                // resources list
+                "/" + locale + "/resources",               // resources hub
+                "/" + locale + "/resources/" + slug        // resource detail (datasheets, etc.)
         );
 
-        CompletableFuture.runAsync(() -> paths.forEach(this::revalidateFrontendPath))
+        CompletableFuture.runAsync(() -> {
+                    log.info(
+                            "frontend_revalidation_batch_started locale={} slug={} pathCount={} webAppHost={}",
+                            locale,
+                            slug,
+                            paths.size(),
+                            webAppUrl.isBlank() ? "(none)" : safeHostForLog(webAppUrl));
+                    for (String path : paths) {
+                        revalidateFrontendPath(path);
+                    }
+                    log.info("frontend_revalidation_batch_finished locale={} slug={}", locale, slug);
+                })
                 .exceptionally(ex -> {
-                    log.warn("frontend_revalidation_thread_failed reason={}", ex.getMessage());
+                    log.warn(
+                            "frontend_revalidation_thread_failed locale={} slug={} reason={}",
+                            locale,
+                            slug,
+                            ex.getMessage());
                     return null;
                 });
     }
@@ -131,10 +168,15 @@ public class CacheService {
      * (layout revalidation is triggered from the Next.js route handler for that path).
      */
     public void evictBlogHighlights(String locale) {
+        log.info("blog_highlights_eviction_started locale={}", locale);
         evictFromCache("blog-highlights", locale);
-        CompletableFuture.runAsync(() -> revalidateFrontendPath("/" + locale + "/blog"))
+        CompletableFuture.runAsync(() -> {
+                    log.info("frontend_revalidation_batch_started locale={} slug=(blog-only) pathCount=1", locale);
+                    revalidateFrontendPath("/" + locale + "/blog");
+                    log.info("frontend_revalidation_batch_finished locale={} slug=(blog-only)", locale);
+                })
                 .exceptionally(ex -> {
-                    log.warn("frontend_revalidation_thread_failed reason={}", ex.getMessage());
+                    log.warn("frontend_revalidation_thread_failed locale={} reason={}", locale, ex.getMessage());
                     return null;
                 });
     }
@@ -145,9 +187,11 @@ public class CacheService {
         }
         try {
             List<Page> linked = pageRepository.findByContentGroupId(contentGroupId);
+            log.info("content_group_eviction_started groupId={} linkedLocales={}", contentGroupId, linked.size());
             for (Page page : linked) {
                 evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
             }
+            log.info("content_group_eviction_finished groupId={}", contentGroupId);
         } catch (Exception e) {
             log.warn("cache_evict_linked_group_failed groupId={} reason={}", contentGroupId, e.getMessage());
         }
@@ -162,10 +206,12 @@ public class CacheService {
     private void evictFromCache(String cacheName, String key) {
         try {
             Cache cache = cacheManager.getCache(cacheName);
-            if (cache != null) {
-                cache.evict(key);
-                log.debug("cache_evicted cache={} key={}", cacheName, key);
+            if (cache == null) {
+                log.warn("cache_evict_skipped cache={} key={} reason=no_such_cache_registered", cacheName, key);
+                return;
             }
+            cache.evict(key);
+            log.info("cache_evicted cache={} key={}", cacheName, key);
         } catch (Exception e) {
             // Cache eviction failure must not block the publish flow.
             log.warn("cache_evict_failed cache={} key={} reason={}", cacheName, key, e.getMessage());
@@ -176,10 +222,12 @@ public class CacheService {
     private void clearCacheFully(String cacheName) {
         try {
             Cache cache = cacheManager.getCache(cacheName);
-            if (cache != null) {
-                cache.clear();
-                log.debug("cache_cleared cache={}", cacheName);
+            if (cache == null) {
+                log.warn("cache_clear_skipped cache={} reason=no_such_cache_registered", cacheName);
+                return;
             }
+            cache.clear();
+            log.info("cache_cleared cache={}", cacheName);
         } catch (Exception e) {
             log.warn("cache_clear_failed cache={} reason={}", cacheName, e.getMessage());
         }
@@ -191,25 +239,75 @@ public class CacheService {
      */
     private void revalidateFrontendPath(String path) {
         if (webAppUrl.isBlank() || revalidateSecret.isBlank()) {
-            log.debug("frontend_revalidation_skipped path={} (app.web.url or app.web.revalidate-secret not configured)", path);
+            log.info(
+                    "frontend_revalidation_skipped path={} webAppUrlConfigured={} revalidateSecretConfigured={}",
+                    path,
+                    !webAppUrl.isBlank(),
+                    !revalidateSecret.isBlank());
             return;
         }
 
+        String base = webAppUrl.stripTrailing();
+        String encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8);
+        String url = base + "/api/revalidate?secret=" + revalidateSecret + "&path=" + encodedPath;
+
+        for (int attempt = 1; attempt <= REVALIDATE_MAX_ATTEMPTS; attempt++) {
+            try {
+                log.info(
+                        "frontend_revalidation_attempt path={} attempt={}/{} targetHost={}",
+                        path,
+                        attempt,
+                        REVALIDATE_MAX_ATTEMPTS,
+                        safeHostForLog(base));
+                // Explicit JSON body + Content-Length — POST with no body can confuse Node's HTTP stack
+                // and yield an RST / empty response ("header parser received no bytes") from the JDK client.
+                restClient.post()
+                        .uri(url)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{}")
+                        .retrieve()
+                        .toBodilessEntity();
+
+                log.info("frontend_revalidation_ok path={} attempt={} targetHost={}", path, attempt, safeHostForLog(base));
+                return;
+            } catch (Exception e) {
+                if (attempt == REVALIDATE_MAX_ATTEMPTS) {
+                    // Non-fatal — ISR TTL will eventually pick up the change.
+                    log.warn(
+                            "frontend_revalidation_failed path={} attempts={} targetHost={} reason={}",
+                            path,
+                            REVALIDATE_MAX_ATTEMPTS,
+                            safeHostForLog(base),
+                            e.getMessage());
+                    return;
+                }
+                log.info(
+                        "frontend_revalidation_retry path={} afterAttempt={} waitMs={} reason={}",
+                        path,
+                        attempt,
+                        REVALIDATE_RETRY_MS,
+                        e.getMessage());
+                try {
+                    Thread.sleep(REVALIDATE_RETRY_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("frontend_revalidation_interrupted path={}", path);
+                    return;
+                }
+            }
+        }
+    }
+
+    private static String safeHostForLog(String webAppUrl) {
+        if (webAppUrl == null || webAppUrl.isBlank()) {
+            return "(blank)";
+        }
         try {
-            String encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8);
-            String url = webAppUrl.stripTrailing()
-                    + "/api/revalidate?secret=" + revalidateSecret
-                    + "&path=" + encodedPath;
-
-            restClient.post()
-                    .uri(url)
-                    .retrieve()
-                    .toBodilessEntity();
-
-            log.debug("frontend_revalidated path={}", path);
-        } catch (Exception e) {
-            // Non-fatal — ISR TTL will eventually pick up the change.
-            log.warn("frontend_revalidation_failed path={} reason={}", path, e.getMessage());
+            URI uri = URI.create(webAppUrl.stripTrailing());
+            String host = uri.getHost();
+            return host != null ? host : webAppUrl.stripTrailing();
+        } catch (IllegalArgumentException e) {
+            return "(invalid-url)";
         }
     }
 }

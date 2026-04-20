@@ -2,6 +2,7 @@ package com.krontech.api.config;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,6 +17,7 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 
 /**
  * Redis-backed Spring Cache configuration.
@@ -61,11 +63,19 @@ public class CacheConfig implements CachingConfigurer {
 
     /**
      * Shared RestClient for on-demand ISR revalidation calls from {@link com.krontech.api.publishing.service.CacheService}.
-     * A single bean keeps connection pool and timeout settings in one place.
+     * <p>
+     * Uses JDK {@link HttpClient} pinned to <strong>HTTP/1.1</strong> — the default JDK client can negotiate
+     * in ways that leave Node's HTTP server with an empty read, which surfaces in Java as
+     * {@code HTTP/1.1 header parser received no bytes} when talking to {@code next start} inside Docker.
      */
     @Bean
     public RestClient revalidationRestClient() {
-        return RestClient.create();
+        HttpClient jdkHttpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(8))
+                .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(jdkHttpClient);
+        return RestClient.builder().requestFactory(requestFactory).build();
     }
 
     @Bean

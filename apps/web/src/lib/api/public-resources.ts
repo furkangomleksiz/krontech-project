@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
+import { publicResourcesTag } from "@/lib/api/public-cache-tags";
 import type { Locale, PublicResourceItem } from "@/types/content";
 
 /** Matches ISR TTL rationale for generic resource content in public-content.ts. */
@@ -39,6 +40,33 @@ export function normalizePublicResourceItem(raw: unknown): PublicResourceItem | 
 export type PublicResourceKind = "CASE_STUDY" | "DATASHEET";
 
 /**
+ * Single published resource by slug (public detail page + prefetch targets).
+ */
+export async function getPublicResourceBySlug(
+  locale: Locale,
+  slug: string,
+): Promise<PublicResourceItem | null> {
+  const enc = encodeURIComponent(slug);
+  try {
+    const rev = devRevalidate();
+    const raw = await apiFetch<unknown>(`/public/resources/${enc}?locale=${locale}`, {
+      revalidateSeconds: rev,
+      nextTags: rev > 0 ? [publicResourcesTag(locale)] : undefined,
+    });
+    return normalizePublicResourceItem(raw);
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[getPublicResourceBySlug] API request failed — returning null. " +
+          "Check NEXT_PUBLIC_API_BASE_URL and that the Spring API is running.",
+        e,
+      );
+    }
+    return null;
+  }
+}
+
+/**
  * Published resources for a locale, optionally filtered by type (case study or datasheet).
  */
 export async function getPublicResources(
@@ -52,8 +80,10 @@ export async function getPublicResources(
     size: "100",
   });
   try {
+    const rev = devRevalidate();
     const raw = await apiFetch<unknown[]>(`/public/resources?${q.toString()}`, {
-      revalidateSeconds: devRevalidate(),
+      revalidateSeconds: rev,
+      nextTags: rev > 0 ? [publicResourcesTag(locale)] : undefined,
     });
     if (!Array.isArray(raw)) return [];
     return raw.map(normalizePublicResourceItem).filter((x): x is PublicResourceItem => x !== null);

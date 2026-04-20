@@ -36,6 +36,13 @@ public class ResourceService {
         return items.stream().map(this::mapToResponse).toList();
     }
 
+    public Optional<ResourceResponse> findPublishedBySlug(String locale, String slug) {
+        LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
+        return resourceRepository
+                .findBySlugAndLocaleAndStatus(slug, localeCode, PublishStatus.PUBLISHED)
+                .map(this::mapToResponse);
+    }
+
     private ResourceResponse mapToResponse(ResourceItem resource) {
         String heroImageUrl = resource.getHeroImageKey() != null
                 ? objectStorageClient.buildPublicUrl(resource.getHeroImageKey())

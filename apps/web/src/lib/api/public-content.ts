@@ -11,7 +11,12 @@ import type {
   PublicResourceItem,
   SeoFields,
 } from "@/types/content";
-import { apiFetch } from "@/lib/api/client";
+import { ApiHttpError, apiFetch } from "@/lib/api/client";
+import {
+  publicBlogTag,
+  publicPagesTag,
+  publicProductsTag,
+} from "@/lib/api/public-cache-tags";
 import { normalizePublicPageListItem } from "@/lib/api/cms-page-list";
 import { normalizeProductListItem } from "@/lib/api/product-list";
 import { mockBlogDetail, mockBlogList, mockPages } from "@/lib/api/mock-content";
@@ -75,8 +80,10 @@ function ttlForSlug(slug: string): number {
 
 export async function getPublicPage(locale: Locale, slug: string): Promise<PublicPageModel> {
   try {
+    const revalidateSeconds = ttlForSlug(slug);
     return await apiFetch<PublicPageModel>(`/public/pages/${slug}?locale=${locale}`, {
-      revalidateSeconds: ttlForSlug(slug),
+      revalidateSeconds,
+      nextTags: revalidateSeconds > 0 ? [publicPagesTag(locale)] : undefined,
     });
   } catch {
     return mockPages[key(locale, slug)] ?? mockPages[key(locale, "home")];
@@ -164,17 +171,15 @@ function normalizeBlogListResponse(
 }
 
 /**
- * Published blog posts for a locale. Uses paginated API metadata when available.
- * Page indices are **zero-based** in `options.page` (same as the API query param).
- */
-/**
  * Curated sidebar posts for the blog list and article pages (published only, max five).
  * GET /api/v1/public/blog/highlights
  */
 export async function getBlogHighlights(locale: Locale): Promise<BlogPostPreview[]> {
   try {
+    const rev = blogFetchRevalidateSeconds(BLOG_LIST_TTL);
     const raw = await apiFetch<unknown>(`/public/blog/highlights?locale=${locale}`, {
-      revalidateSeconds: blogFetchRevalidateSeconds(BLOG_LIST_TTL),
+      revalidateSeconds: rev,
+      nextTags: rev > 0 ? [publicBlogTag(locale)] : undefined,
     });
     if (!Array.isArray(raw)) return [];
     return raw.map((row) => normalizeBlogPostPreview(row));
@@ -189,6 +194,10 @@ export async function getBlogHighlights(locale: Locale): Promise<BlogPostPreview
   }
 }
 
+/**
+ * Published blog posts for a locale. Uses paginated API metadata when available.
+ * Page indices are **zero-based** in `options.page` (same as the API query param).
+ */
 export async function getBlogList(
   locale: Locale,
   options?: { page?: number; size?: number },
@@ -196,8 +205,10 @@ export async function getBlogList(
   const page = options?.page ?? 0;
   const size = options?.size ?? DEFAULT_BLOG_LIST_PAGE_SIZE;
   try {
+    const rev = blogFetchRevalidateSeconds(BLOG_LIST_TTL);
     const raw = await apiFetch<unknown>(`/public/blog?locale=${locale}&page=${page}&size=${size}`, {
-      revalidateSeconds: blogFetchRevalidateSeconds(BLOG_LIST_TTL),
+      revalidateSeconds: rev,
+      nextTags: rev > 0 ? [publicBlogTag(locale)] : undefined,
     });
     return normalizeBlogListResponse(raw, locale, page, size);
   } catch {
@@ -261,8 +272,10 @@ function normalizeBlogPostDetail(raw: unknown, locale: Locale, slug: string): Bl
 
 export async function getBlogPost(locale: Locale, slug: string): Promise<BlogPostDetail> {
   try {
+    const rev = blogFetchRevalidateSeconds(BLOG_POST_TTL);
     const raw = await apiFetch<unknown>(`/public/blog/${slug}?locale=${locale}`, {
-      revalidateSeconds: blogFetchRevalidateSeconds(BLOG_POST_TTL),
+      revalidateSeconds: rev,
+      nextTags: rev > 0 ? [publicBlogTag(locale)] : undefined,
     });
     return normalizeBlogPostDetail(raw, locale, slug);
   } catch {
@@ -278,6 +291,7 @@ export async function getPublicProductList(locale: Locale): Promise<ProductListI
       process.env.NODE_ENV === "development" ? 0 : PRODUCT_LIST_TTL;
     const rows = await apiFetch<unknown[]>(`/public/products?locale=${locale}`, {
       revalidateSeconds,
+      nextTags: revalidateSeconds > 0 ? [publicProductsTag(locale)] : undefined,
     });
     return Array.isArray(rows) ? rows.map(normalizeProductListItem) : [];
   } catch (e) {
@@ -306,6 +320,7 @@ export async function getPublicPublishedPageList(
     const revalidateSeconds = process.env.NODE_ENV === "development" ? 0 : PAGE_LIST_TTL;
     const rows = await apiFetch<unknown[]>(`/public/pages?locale=${locale}&limit=${limit}`, {
       revalidateSeconds,
+      nextTags: revalidateSeconds > 0 ? [publicPagesTag(locale)] : undefined,
     });
     return Array.isArray(rows) ? rows.map(normalizePublicPageListItem) : [];
   } catch (e) {
@@ -351,17 +366,24 @@ export function productPublicSeoToSeoFields(seo: ProductDetail["seo"]): SeoField
   };
 }
 
+export type PublicProductFetchResult =
+  | { kind: "ok"; product: ProductDetail }
+  | { kind: "not_found" }
+  | { kind: "unavailable" };
+
 /**
- * Published product for the product detail route. Returns null if the API is unreachable
- * (caller may fall back to generic page content).
+ * Published product for the product detail route.
+ * - {@code not_found}: API returned 404 (unpublished or missing slug) — caller should {@code notFound()}.
+ * - {@code unavailable}: network / 5xx — caller may fall back to generic page content.
  */
-export async function getPublicProduct(locale: Locale, slug: string): Promise<ProductDetail | null> {
+export async function getPublicProduct(locale: Locale, slug: string): Promise<PublicProductFetchResult> {
   try {
     const data = await apiFetch<ProductDetail>(`/public/products/${encodeURIComponent(slug)}?locale=${locale}`, {
       revalidateSeconds: PRODUCT_TTL,
+      nextTags: [publicProductsTag(locale)],
     });
     const raw = data as unknown as Record<string, unknown>;
-    return {
+    const product: ProductDetail = {
       ...data,
       detailTabs: normalizeDetailTabs(data.detailTabs),
       resourcesIntro: normalizeProductResourcesIntro(raw.resourcesIntro ?? raw.resources_intro),
@@ -379,14 +401,18 @@ export async function getPublicProduct(locale: Locale, slug: string): Promise<Pr
           structuredDataJson: null,
         } satisfies ProductDetail["seo"]),
     };
+    return { kind: "ok", product };
   } catch (e) {
+    if (e instanceof ApiHttpError && e.status === 404) {
+      return { kind: "not_found" };
+    }
     if (process.env.NODE_ENV === "development") {
       console.error(
         "[getPublicProduct] API request failed — ensure Spring Boot is running and NEXT_PUBLIC_API_BASE_URL is set.",
         e,
       );
     }
-    return null;
+    return { kind: "unavailable" };
   }
 }
 

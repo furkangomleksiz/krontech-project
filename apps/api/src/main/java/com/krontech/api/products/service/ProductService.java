@@ -57,12 +57,15 @@ public class ProductService {
                 .toList();
     }
 
-    public ProductResponse getProduct(String slug, String locale) {
+    /**
+     * Published product only. Empty when the slug is unknown or not published — the public controller
+     * maps this to HTTP 404 (no synthetic payload, so CDNs and Next.js can tell “gone” from “live”).
+     */
+    public Optional<ProductResponse> getPublishedProduct(String slug, String locale) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
-        Product product = productRepository.findBySlugAndLocaleAndStatus(slug, localeCode, PublishStatus.PUBLISHED)
-                .orElseGet(() -> buildFallback(slug, localeCode));
-
-        return mapToResponse(product);
+        return productRepository
+                .findBySlugAndLocaleAndStatus(slug, localeCode, PublishStatus.PUBLISHED)
+                .map(this::mapToResponse);
     }
 
     /**
@@ -169,16 +172,5 @@ public class ProductService {
             }
         }
         return List.copyOf(lines);
-    }
-
-    private Product buildFallback(String slug, LocaleCode localeCode) {
-        Product product = new Product();
-        product.setSlug(slug);
-        product.setLocale(localeCode);
-        product.setPageType("product");
-        product.setTitle("Kron " + slug);
-        product.setSummary("Fallback product summary.");
-        product.setHighlights("Fallback product highlights.");
-        return product;
     }
 }
