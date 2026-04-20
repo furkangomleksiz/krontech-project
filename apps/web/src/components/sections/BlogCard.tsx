@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { normalizeBlogHeroImageUrl } from "@/lib/blog-hero-image";
 import type { BlogPostPreview, Locale } from "@/types/content";
 
 interface BlogCardProps {
@@ -12,12 +13,13 @@ function formatDate(iso: string) {
 
 export function BlogCard({ post, locale }: BlogCardProps) {
   const href = `/${locale}/blog/${post.slug}`;
+  const coverSrc = normalizeBlogHeroImageUrl(post.coverImageUrl);
   return (
     <article className="blog-card">
       <Link href={href} aria-label={`Read: ${post.title}`} tabIndex={-1}>
         <div className="blog-card__image">
-          {post.coverImageUrl ? (
-            <img src={post.coverImageUrl} alt={post.title} loading="lazy" />
+          {coverSrc ? (
+            <img src={coverSrc} alt={post.title} loading="lazy" />
           ) : (
             <div className="blog-card__img-placeholder" aria-hidden="true" />
           )}

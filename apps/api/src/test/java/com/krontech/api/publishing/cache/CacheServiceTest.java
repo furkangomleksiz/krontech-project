@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.krontech.api.pages.repository.PageRepository;
 import com.krontech.api.publishing.service.CacheService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,7 @@ import org.springframework.web.client.RestClient;
  * Unit tests for CacheService eviction logic.
  *
  * The key behaviors under test:
- *   1. evictContent always evicts from all four Spring caches synchronously.
+ *   1. evictContent always evicts from all relevant Spring caches synchronously (and clears {@code page-list}).
  *   2. Frontend revalidation (RestClient) is skipped when secret or URL is blank.
  *   3. A null cache returned by CacheManager (e.g. cache not configured) is handled gracefully.
  *
@@ -32,6 +33,7 @@ class CacheServiceTest {
     private final CacheManager cacheManager = mock(CacheManager.class);
     private final Cache        mockCache    = mock(Cache.class);
     private final RestClient   restClient   = mock(RestClient.class);
+    private final PageRepository pageRepository = mock(PageRepository.class);
 
     @BeforeEach
     void setUp() {
@@ -41,21 +43,23 @@ class CacheServiceTest {
     // ── eviction ─────────────────────────────────────────────────────────────
 
     @Test
-    void evictContent_shouldEvictAllFourCaches() {
+    void evictContent_shouldEvictAllRelevantCaches() {
         CacheService service = serviceWith("", "");
 
         service.evictContent("tr", "kron-pam");
 
-        // All four cache names must be requested
         verify(cacheManager).getCache("pages");
         verify(cacheManager).getCache("blog-list");
         verify(cacheManager).getCache("blog-detail");
         verify(cacheManager).getCache("resource-list");
+        verify(cacheManager).getCache("product-list");
+        verify(cacheManager).getCache("page-list");
 
         // "kron-pam:tr" is used as the key for both "pages" and "blog-detail" (2 times)
         verify(mockCache, times(2)).evict("kron-pam:tr");
-        // "tr" is used as the key for both "blog-list" and "resource-list" (2 times)
-        verify(mockCache, times(2)).evict("tr");
+        // "tr" is used as the key for "blog-list", "resource-list", and "product-list" (3 times)
+        verify(mockCache, times(3)).evict("tr");
+        verify(mockCache, times(1)).clear();
     }
 
     @Test
@@ -64,8 +68,10 @@ class CacheServiceTest {
 
         service.evictContent("en", "home");
 
+        verify(cacheManager).getCache("page-list");
         verify(mockCache, times(2)).evict("home:en");
-        verify(mockCache, times(2)).evict("en");
+        verify(mockCache, times(3)).evict("en");
+        verify(mockCache, times(1)).clear();
     }
 
     // ── revalidation skip logic ───────────────────────────────────────────────
@@ -120,6 +126,6 @@ class CacheServiceTest {
     // ── helper ────────────────────────────────────────────────────────────────
 
     private CacheService serviceWith(String webAppUrl, String revalidateSecret) {
-        return new CacheService(cacheManager, restClient, webAppUrl, revalidateSecret);
+        return new CacheService(cacheManager, restClient, pageRepository, webAppUrl, revalidateSecret);
     }
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createResource, type SeoAdminFields, type ResourceType } from "@/lib/api/admin";
+import { MediaPicker } from "@/components/admin/MediaPicker";
 import { ErrorBanner, SeoFieldset, SuccessBanner } from "@/components/admin/ui";
 
 export default function NewResourcePage() {
@@ -58,7 +59,6 @@ export default function NewResourcePage() {
                   <option value="WHITEPAPER">Whitepaper</option>
                   <option value="DATASHEET">Datasheet</option>
                   <option value="CASE_STUDY">Case Study</option>
-                  <option value="WEBINAR">Webinar</option>
                   <option value="VIDEO">Video</option>
                   <option value="OTHER">Other</option>
                 </select>
@@ -74,17 +74,20 @@ export default function NewResourcePage() {
               <textarea className="admin-textarea" rows={3} value={form.summary}
                 onChange={(e) => set("summary", e.target.value)} />
             </div>
-            <div className="admin-field">
-              <label className="admin-label">Hero image key</label>
-              <input type="text" className="admin-input" value={form.heroImageKey}
-                onChange={(e) => set("heroImageKey", e.target.value)} />
-            </div>
+            <MediaPicker
+              label="Cover image (card thumbnail)"
+              placeholder="media/covers/case-study.jpg"
+              value={form.heroImageKey}
+              onChange={(v) => set("heroImageKey", v)}
+            />
             <div className="admin-form-row admin-form-row--2">
-              <div className="admin-field">
-                <label className="admin-label">File key <span className="admin-label-hint">(S3 object key)</span></label>
-                <input type="text" className="admin-input" value={form.fileKey}
-                  onChange={(e) => set("fileKey", e.target.value)} placeholder="media/docs/whitepaper.pdf" />
-              </div>
+              <MediaPicker
+                variant="pdf"
+                label="PDF file key"
+                placeholder="media/docs/resource.pdf"
+                value={form.fileKey}
+                onChange={(v) => set("fileKey", v)}
+              />
               <div className="admin-field">
                 <label className="admin-label">External URL <span className="admin-label-hint">(or use a link)</span></label>
                 <input type="url" className="admin-input" value={form.externalUrl}

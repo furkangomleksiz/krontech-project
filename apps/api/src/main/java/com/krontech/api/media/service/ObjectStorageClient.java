@@ -46,4 +46,11 @@ public interface ObjectStorageClient {
      * @throws RuntimeException if the storage call itself fails (e.g. network error).
      */
     void delete(String objectKey);
+
+    /**
+     * Downloads an object in full. Intended for small-to-medium blobs (e.g. PDFs for thumbnail generation).
+     *
+     * @throws RuntimeException if the object is missing or the request fails.
+     */
+    byte[] getObjectAsBytes(String objectKey);
 }

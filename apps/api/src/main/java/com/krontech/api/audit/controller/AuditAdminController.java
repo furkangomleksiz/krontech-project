@@ -7,6 +7,8 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,13 +16,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Read-only audit trail. ADMIN only — contains actor emails and content change history.
+ * Read-only audit trail. ADMIN and EDITOR may list entries (actor emails, action verbs).
  *
  * GET /api/v1/admin/audit?targetId={id}&action=PUBLISH&actor=editor@...&page=0&size=20
  */
 @RestController
 @RequestMapping("/api/v1/admin/audit")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'EDITOR')")
 public class AuditAdminController {
 
     private final AuditLogRepository auditLogRepository;
@@ -30,7 +32,7 @@ public class AuditAdminController {
     }
 
     @GetMapping
-    public Page<AuditLogResponse> list(
+    public ResponseEntity<Page<AuditLogResponse>> list(
             @RequestParam(required = false) UUID targetId,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String actor,
@@ -48,7 +50,9 @@ public class AuditAdminController {
             results = auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
 
-        return results.map(this::toResponse);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(results.map(this::toResponse));
     }
 
     private AuditLogResponse toResponse(AuditLog log) {

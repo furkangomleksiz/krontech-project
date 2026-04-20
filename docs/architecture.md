@@ -193,9 +193,26 @@ docker compose up -d           # starts Postgres, Redis, MinIO, minio-init
 # MinIO S3 API:  http://localhost:9000
 ```
 
-## Why Spring Boot for backend
+## Design rationale
 
-Spring Boot was selected over NestJS because:
-- Mature ecosystem for JPA, security, and validation with little configuration surface
-- Straightforward modular monolith support with clear package boundaries
-- Progression from scaffold to production hardening is well-understood
+The four decisions that most affect the architecture's shape:
+
+**Modular monolith** — single deployable, domain-isolated packages. The module structure
+(`entity/repository/service/controller/dto` per domain) gives the same conceptual isolation
+as microservices without the distributed systems overhead. Each module can be extracted later
+if needed; its bounded context is already drawn.
+
+**Spring Boot** — JPA joined-table inheritance maps cleanly to the content hierarchy
+(`Page → BlogPost / Product / ResourceItem`). Spring Security handles JWT + role-based auth
+with minimal config. A single framework covers web, security, data, caching, scheduling, and
+events — no library stitching.
+
+**REST** — content response shapes are fixed (a blog post is always the same fields). ISR
+cache keys are URLs; per-endpoint rate limiting maps to URL prefixes. GraphQL's flexible
+field selection would go unused.
+
+**Next.js App Router** — ISR with on-demand revalidation (triggered by the backend on publish)
+is the correct caching primitive for a CMS-driven site. Server Components keep public pages
+free of client JavaScript.
+
+See [`docs/decisions.md`](./decisions.md) for detailed rationale and tradeoffs for each choice.

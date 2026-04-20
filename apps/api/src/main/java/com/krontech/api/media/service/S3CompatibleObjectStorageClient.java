@@ -1,8 +1,11 @@
 package com.krontech.api.media.service;
 
 import jakarta.annotation.PostConstruct;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
+import software.amazon.awssdk.core.ResponseInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +18,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
@@ -107,7 +112,16 @@ public class S3CompatibleObjectStorageClient implements ObjectStorageClient {
 
     @Override
     public String buildPublicUrl(String objectKey) {
-        return publicEndpoint.stripTrailing() + "/" + bucket + "/" + objectKey;
+        if (objectKey == null || objectKey.isBlank()) {
+            return null;
+        }
+        // Keys occasionally arrive with leading/trailing spaces from forms; a leading space
+        // breaks the URL path (e.g. ".../media/ uploads/..." instead of ".../media/uploads/...").
+        String key = objectKey.strip();
+        if (key.isEmpty()) {
+            return null;
+        }
+        return publicEndpoint.stripTrailing() + "/" + bucket + "/" + key;
     }
 
     @Override
@@ -126,6 +140,20 @@ public class S3CompatibleObjectStorageClient implements ObjectStorageClient {
     public void delete(String objectKey) {
         s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build());
         log.debug("Deleted object '{}' from bucket '{}'.", objectKey, bucket);
+    }
+
+    @Override
+    public byte[] getObjectAsBytes(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new IllegalArgumentException("objectKey is required");
+        }
+        String key = objectKey.strip();
+        try (ResponseInputStream<GetObjectResponse> in = s3Client.getObject(
+                GetObjectRequest.builder().bucket(bucket).key(key).build())) {
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read object '" + key + "'", e);
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

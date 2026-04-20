@@ -15,6 +15,32 @@ A production-oriented, content-driven website platform built as a modular monoli
 └─ .env.example
 ```
 
+## Architecture at a glance
+
+```
+Browser
+  │
+  ├─ Next.js Edge Middleware — redirect rules (cached 5 min) → 301/302
+  │
+  ├─ Next.js public pages  (/tr, /en)
+  │      │  ISR cache (30 min – 2 h) + on-demand revalidation on publish
+  │      └─ GET /api/v1/public/**  →  Spring Boot  →  Redis (10–20 min)  →  PostgreSQL
+  │
+  ├─ Next.js admin UI  (/admin/**)
+  │      └─ /api/v1/admin/**  ←  JWT (60 min)  →  Spring Boot  →  PostgreSQL
+  │
+  └─ POST /api/v1/forms/submit  →  Spring Boot  →  PostgreSQL
+                                        └─ ApplicationEvent → WebhookNotificationService
+```
+
+**Key choices:**
+- **Modular monolith** (not microservices) — single deployable, domain-isolated packages, no distributed systems overhead for a B2B marketing site
+- **REST** (not GraphQL) — fixed response shapes, ISR-friendly URL caching, per-endpoint rate limiting
+- **Next.js ISR + on-demand revalidation** — publish in the admin → backend evicts Redis and calls `POST /api/revalidate` → stale HTML is immediately regenerated
+- **Locale-per-row** (`slug, locale` unique pair) — TR and EN variants have independent publish states; linked by `contentGroupId`
+
+See [`docs/decisions.md`](docs/decisions.md) for full tradeoff rationale. See [`REVIEW.md`](REVIEW.md) for a reviewer/demo guide.
+
 ## Stack
 
 | Layer | Technology |

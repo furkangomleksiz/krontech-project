@@ -20,6 +20,7 @@ public record ResourceAdminResponse(
         String resourceType,
         String fileKey,
         String externalUrl,
+        String filePreviewImageKey,
         SeoResponse seo,
         Instant createdAt,
         Instant updatedAt

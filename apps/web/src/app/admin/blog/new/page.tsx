@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createBlogPost, type SeoAdminFields } from "@/lib/api/admin";
 import { ErrorBanner, SeoFieldset, SuccessBanner } from "@/components/admin/ui";
+import { MediaPicker } from "@/components/admin/MediaPicker";
 
 const BLANK_SEO: SeoAdminFields = { noIndex: false };
 
@@ -145,16 +146,12 @@ export default function NewBlogPostPage() {
               </div>
             </div>
 
-            <div className="admin-field">
-              <label className="admin-label">Hero image key</label>
-              <input
-                type="text"
-                className="admin-input"
-                value={form.heroImageKey}
-                onChange={(e) => set("heroImageKey", e.target.value)}
-                placeholder="media/blog/cover.jpg"
-              />
-            </div>
+            <MediaPicker
+              label="Hero image key"
+              value={form.heroImageKey}
+              onChange={(v) => set("heroImageKey", v)}
+              placeholder="media/blog/cover.jpg"
+            />
 
             <div className="admin-field">
               <label className="admin-label">

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { listMedia, type MediaAdminItem } from "@/lib/api/admin";
+
+export type MediaPickerVariant = "image" | "pdf";
 
 interface MediaPickerProps {
   /** Current value of the field (an S3 object key). */
@@ -9,6 +11,8 @@ interface MediaPickerProps {
   onChange: (key: string) => void;
   label?: string;
   placeholder?: string;
+  /** `pdf` lists `application/pdf` uploads for document fields. */
+  variant?: MediaPickerVariant;
 }
 
 function formatBytes(bytes: number): string {
@@ -21,6 +25,7 @@ export function MediaPicker({
   onChange,
   label = "Image key",
   placeholder = "media/image.jpg",
+  variant = "image",
 }: MediaPickerProps) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<MediaAdminItem[]>([]);
@@ -29,32 +34,37 @@ export function MediaPicker({
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  async function fetchMedia(p = 0) {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await listMedia({ page: p, size: 20, mimeType: "image/" });
-      setItems(res.content);
-      setTotalPages(res.totalPages);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load media.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const mimePrefix = variant === "pdf" ? "application/pdf" : "image/";
+
+  const fetchMedia = useCallback(
+    async (p = 0) => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await listMedia({ page: p, size: 20, mimeType: mimePrefix });
+        setItems(res.content);
+        setTotalPages(res.totalPages);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load media.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [mimePrefix],
+  );
 
   useEffect(() => {
     if (open) {
       setPage(0);
       fetchMedia(0);
     }
-  }, [open]);
+  }, [open, fetchMedia]);
 
   return (
     <>
       <div className="admin-field">
         <label className="admin-label">{label}</label>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="admin-media-picker-row">
           <input
             type="text"
             className="admin-input"
@@ -66,7 +76,6 @@ export function MediaPicker({
             type="button"
             className="admin-btn admin-btn--secondary"
             onClick={() => setOpen(true)}
-            style={{ whiteSpace: "nowrap", flexShrink: 0 }}
           >
             Browse
           </button>
@@ -98,7 +107,9 @@ export function MediaPicker({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="admin-card-header">
-              <p className="admin-card-title">Media Library — select an image</p>
+              <p className="admin-card-title">
+                {variant === "pdf" ? "Media Library — select a PDF" : "Media Library — select an image"}
+              </p>
               <button
                 className="admin-btn admin-btn--ghost admin-btn--sm"
                 onClick={() => setOpen(false)}
@@ -119,7 +130,9 @@ export function MediaPicker({
                 </div>
               ) : items.length === 0 ? (
                 <p style={{ color: "var(--a-text-muted)", textAlign: "center", padding: 24 }}>
-                  No images in the media library yet. Upload assets first.
+                  {variant === "pdf"
+                    ? "No PDFs in the media library yet. Upload a PDF first."
+                    : "No images in the media library yet. Upload assets first."}
                 </p>
               ) : (
                 <div
@@ -148,17 +161,33 @@ export function MediaPicker({
                         transition: "border-color 0.15s",
                       }}
                     >
-                      <img
-                        src={item.publicUrl}
-                        alt={item.altText ?? item.fileName}
-                        style={{
-                          width: "100%",
-                          height: 100,
-                          objectFit: "cover",
-                          display: "block",
-                          background: "#f3f4f6",
-                        }}
-                      />
+                      {variant === "pdf" ? (
+                        <div
+                          style={{
+                            height: 100,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "#f3f4f6",
+                            fontSize: 36,
+                          }}
+                          aria-hidden
+                        >
+                          PDF
+                        </div>
+                      ) : (
+                        <img
+                          src={item.publicUrl}
+                          alt={item.altText ?? item.fileName}
+                          style={{
+                            width: "100%",
+                            height: 100,
+                            objectFit: "cover",
+                            display: "block",
+                            background: "#f3f4f6",
+                          }}
+                        />
+                      )}
                       <div style={{ padding: "6px 8px" }}>
                         <div
                           style={{

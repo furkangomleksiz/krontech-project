@@ -21,6 +21,9 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+  flyway:
+    # Existing dev DBs already have tables but no flyway_schema_history; baseline then apply migrations.
+    baseline-on-migrate: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}

@@ -25,7 +25,8 @@ public class AuditService {
     /**
      * Records a single audit event.
      *
-     * @param action     UPPER_SNAKE_CASE verb: PUBLISH, SCHEDULE, UNPUBLISH, ROTATE_PREVIEW_TOKEN
+     * @param action     UPPER_SNAKE_CASE verb: CREATE, UPDATE, DELETE, PUBLISH, SCHEDULE, UNPUBLISH,
+     *                   SCHEDULED_PUBLISH, ROTATE_PREVIEW_TOKEN
      * @param targetType content type label: PAGE, BLOG_POST, PRODUCT, RESOURCE
      * @param targetId   UUID of the affected entity row
      * @param targetSlug slug at the time of the event (for human-readable reports)
@@ -38,7 +39,8 @@ public class AuditService {
         log.setTargetType(targetType);
         log.setTargetId(targetId);
         log.setTargetSlug(targetSlug);
-        log.setDetails(details);
+        // DB may enforce NOT NULL on details (e.g. legacy Hibernate ddl); keep optional semantics with empty string.
+        log.setDetails(details != null ? details : "");
         auditLogRepository.save(log);
     }
 

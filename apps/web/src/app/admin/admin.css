@@ -558,6 +558,15 @@
   gap: 5px;
 }
 
+/* Key field + Browse — grid reserves a column for the button (flex + width:100% on inputs can overflow-hide it). */
+.admin-media-picker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
 .admin-label {
   font-size: 13px;
   font-weight: 500;

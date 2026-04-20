@@ -1,9 +1,12 @@
 package com.krontech.api.publishing.service;
 
 import com.krontech.api.audit.service.AuditService;
+import com.krontech.api.blog.entity.BlogPost;
 import com.krontech.api.localization.LocaleCode;
 import com.krontech.api.pages.entity.Page;
 import com.krontech.api.pages.repository.PageRepository;
+import com.krontech.api.products.entity.Product;
+import com.krontech.api.resources.entity.ResourceItem;
 import com.krontech.api.publishing.PublishStatus;
 import com.krontech.api.publishing.dto.PreviewTokenResponse;
 import com.krontech.api.publishing.dto.PublishPageRequest;
@@ -12,6 +15,7 @@ import com.krontech.api.publishing.dto.SchedulePageRequest;
 import com.krontech.api.publishing.dto.UnpublishPageRequest;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.Hibernate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -64,7 +68,8 @@ public class PublishingService {
         pageRepository.save(page);
 
         cacheService.evictContent(request.locale(), request.slug());
-        auditService.record("PUBLISH", "PAGE", page.getId(), page.getSlug(),
+        cacheService.evictLinkedContentGroup(page.getContentGroupId());
+        auditService.record("PUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 prev.name() + " → PUBLISHED");
 
         return toStateResponse(page);
@@ -87,7 +92,7 @@ public class PublishingService {
         page.setScheduledAt(request.scheduledAt());
         pageRepository.save(page);
 
-        auditService.record("SCHEDULE", "PAGE", page.getId(), page.getSlug(),
+        auditService.record("SCHEDULE", auditTargetType(page), page.getId(), page.getSlug(),
                 "DRAFT → SCHEDULED for " + request.scheduledAt());
 
         return toStateResponse(page);
@@ -111,7 +116,8 @@ public class PublishingService {
         pageRepository.save(page);
 
         cacheService.evictContent(request.locale(), request.slug());
-        auditService.record("UNPUBLISH", "PAGE", page.getId(), page.getSlug(),
+        cacheService.evictLinkedContentGroup(page.getContentGroupId());
+        auditService.record("UNPUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 prev.name() + " → DRAFT");
 
         return toStateResponse(page);
@@ -130,7 +136,7 @@ public class PublishingService {
         page.setPreviewToken(token);
         pageRepository.save(page);
 
-        auditService.record("ROTATE_PREVIEW_TOKEN", "PAGE", page.getId(), page.getSlug(),
+        auditService.record("ROTATE_PREVIEW_TOKEN", auditTargetType(page), page.getId(), page.getSlug(),
                 "New preview token issued.");
 
         return new PreviewTokenResponse(pageId, token, "/api/v1/preview?token=" + token);
@@ -143,8 +149,27 @@ public class PublishingService {
         pageRepository.save(page);
 
         cacheService.evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
-        auditService.record("SCHEDULED_PUBLISH", "PAGE", page.getId(), page.getSlug(),
+        cacheService.evictLinkedContentGroup(page.getContentGroupId());
+        auditService.record("SCHEDULED_PUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 "SCHEDULED → PUBLISHED (auto-promoted by scheduler)");
+    }
+
+    /**
+     * Discriminator-aware label for audit rows (aligned with {@link com.krontech.api.audit.entity.AuditLog}).
+     */
+    static String auditTargetType(Page page) {
+        // PageRepository returns Hibernate proxies typed as Page; instanceof BlogPost fails until unproxied.
+        Page concrete = Hibernate.unproxy(page, Page.class);
+        if (concrete instanceof BlogPost) {
+            return "BLOG_POST";
+        }
+        if (concrete instanceof Product) {
+            return "PRODUCT";
+        }
+        if (concrete instanceof ResourceItem) {
+            return "RESOURCE";
+        }
+        return "PAGE";
     }
 
     private Page findBySlugAndLocaleOrThrow(String slug, LocaleCode locale) {

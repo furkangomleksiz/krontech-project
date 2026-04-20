@@ -23,9 +23,21 @@
  *
  *   TTL is 5 minutes by default — appropriate for infrequent rule changes.
  *   To purge immediately during a migration cutover, restart the Next.js process.
+ *
+ *   The HTTP fetch itself uses cache: "no-store" so Next.js does not persist API
+ *   responses in its Data Cache — otherwise edited rules could appear "stuck"
+ *   until the framework revalidate window expires.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+/** Same-origin target: absolute path on this host. Off-site: full http(s) URL. */
+function resolveRedirectTarget(request: NextRequest, targetPath: string): string {
+  const t = targetPath.trim();
+  if (t.startsWith("http://") || t.startsWith("https://")) return t;
+  const path = t.startsWith("/") ? t : `/${t}`;
+  return `${request.nextUrl.origin}${path}`;
+}
 
 // ── Redirect rule cache ───────────────────────────────────────────────────────
 
@@ -54,10 +66,7 @@ async function getRedirectRules(): Promise<RedirectRule[]> {
   if (!apiBase) return cachedRules;
 
   try {
-    const res = await fetch(`${apiBase}/public/redirects`, {
-      // Next.js fetch cache: revalidate every 5 minutes at the framework layer too.
-      next: { revalidate: 300 },
-    });
+    const res = await fetch(`${apiBase}/public/redirects`, { cache: "no-store" });
     if (res.ok) {
       const rules = (await res.json()) as RedirectRule[];
       cachedRules = rules;
@@ -103,11 +112,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const rule = rules.find((r) => r.sourcePath === pathname);
 
     if (rule) {
-      // targetPath may be an absolute path or a full URL (for off-site redirects).
-      const target = rule.targetPath.startsWith("http")
-        ? rule.targetPath
-        : new URL(rule.targetPath, request.url).toString();
-
+      const target = resolveRedirectTarget(request, rule.targetPath);
       return NextResponse.redirect(target, { status: rule.statusCode });
     }
   }

@@ -1,3 +1,6 @@
+"use client";
+
+import type { ReactNode } from "react";
 import type { ProductFeature } from "@/types/content";
 
 interface FeatureRowProps {
@@ -7,7 +10,7 @@ interface FeatureRowProps {
 export function FeatureRow({ feature }: FeatureRowProps) {
   /* Replace the highlighted word with a <mark> element */
   const titleNodes = feature.titleHighlight
-    ? feature.title.split(feature.titleHighlight).reduce<React.ReactNode[]>((acc, part, i, arr) => {
+    ? feature.title.split(feature.titleHighlight).reduce<ReactNode[]>((acc, part, i, arr) => {
         acc.push(part);
         if (i < arr.length - 1) {
           acc.push(<mark key={i}>{feature.titleHighlight}</mark>);
@@ -27,7 +30,11 @@ export function FeatureRow({ feature }: FeatureRowProps) {
       </div>
       <div className="feature-row__media" aria-hidden="true">
         {feature.imageUrl && (
-          <img src={feature.imageUrl} alt={feature.title} loading="lazy" />
+          <img
+            src={feature.imageUrl}
+            alt={feature.imageAlt?.trim() || feature.title}
+            loading="lazy"
+          />
         )}
       </div>
     </article>

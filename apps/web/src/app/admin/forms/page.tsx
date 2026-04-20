@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getFormSubmission, listFormSubmissions, type FormSubmissionAdminItem } from "@/lib/api/admin";
+import {
+  downloadFormSubmissionsCsv,
+  getFormSubmission,
+  listFormSubmissions,
+  type FormSubmissionAdminItem,
+} from "@/lib/api/admin";
 import { EmptyState, ErrorBanner, LoadingState, Pagination } from "@/components/admin/ui";
 
 function DetailRow({ label, value }: { label: string; value: string | undefined }) {
@@ -24,6 +29,8 @@ export default function FormSubmissionsPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<FormSubmissionAdminItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [exportTarget, setExportTarget] = useState<null | "thisType" | "all">(null);
+  const [exportError, setExportError] = useState("");
 
   async function load(p = page) {
     setLoading(true); setError("");
@@ -38,9 +45,27 @@ export default function FormSubmissionsPage() {
 
   async function openDetail(id: string) {
     setDetailLoading(true);
+    setExportError("");
     try { const item = await getFormSubmission(id); setSelected(item); }
     catch { setSelected(null); }
     finally { setDetailLoading(false); }
+  }
+
+  async function handleExportCsv(scope: "thisType" | "all") {
+    if (!selected) return;
+    setExportTarget(scope === "thisType" ? "thisType" : "all");
+    setExportError("");
+    try {
+      await downloadFormSubmissionsCsv(
+        scope === "thisType" ? selected.formType : undefined,
+      );
+    } catch (e) {
+      setExportError(
+        e instanceof Error ? e.message : "Could not download export.",
+      );
+    } finally {
+      setExportTarget(null);
+    }
   }
 
 
@@ -74,10 +99,40 @@ export default function FormSubmissionsPage() {
                 <label className="admin-label">Message</label>
                 <div className="admin-pre">{selected.message}</div>
               </div>
-              <p style={{ fontSize: 12, color: "var(--a-text-muted)", margin: 0 }}>
-                Export submissions via{" "}
-                <code style={{ fontFamily: "monospace" }}>GET /api/v1/admin/forms/export.csv</code>
-              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  alignItems: "center",
+                  paddingTop: 4,
+                  borderTop: "1px solid var(--a-border-subtle, rgba(0,0,0,.08))",
+                }}
+              >
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--secondary admin-btn--sm"
+                  disabled={exportTarget !== null}
+                  onClick={() => handleExportCsv("thisType")}
+                >
+                  {exportTarget === "thisType"
+                    ? "Downloading…"
+                    : `Download ${selected.formType} CSV`}
+                </button>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--ghost admin-btn--sm"
+                  disabled={exportTarget !== null}
+                  onClick={() => handleExportCsv("all")}
+                >
+                  {exportTarget === "all" ? "Downloading…" : "Download all CSV"}
+                </button>
+              </div>
+              {exportError ? (
+                <p style={{ fontSize: 12, color: "var(--a-danger, #b42318)", margin: "8px 0 0" }}>
+                  {exportError}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

@@ -60,8 +60,12 @@ async function adminFetch<T>(
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    // Avoid stale admin reads (e.g. audit log after save) when the URL is unchanged.
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
@@ -156,15 +160,54 @@ export interface BlogAdminItem extends ContentAdminBase {
   category?: string;
 }
 
+export interface ProductTabCardAdminItem {
+  id: string;
+  /** Matches API enum: SOLUTION | HOW_IT_WORKS | KEY_BENEFITS | RESOURCES */
+  tab: string;
+  sortOrder: number;
+  title: string;
+  body: string;
+  imageObjectKey?: string;
+  imageAlt?: string;
+}
+
+/** Write payload for create/update (no card id — server replaces rows). */
+export interface ProductTabCardReplacePayload {
+  tab: "SOLUTION" | "HOW_IT_WORKS" | "KEY_BENEFITS" | "RESOURCES";
+  sortOrder: number;
+  title: string;
+  body: string;
+  imageObjectKey?: string;
+  imageAlt?: string;
+}
+
+export interface ProductResourcesTabPayload {
+  introTitle?: string | null;
+  introBody?: string | null;
+  introImageKey?: string | null;
+  introImageAlt?: string | null;
+  linkedResourceIds?: string[];
+}
+
 export interface ProductAdminItem extends ContentAdminBase {
   highlights?: string;
+  resourcesIntroTitle?: string | null;
+  resourcesIntroBody?: string | null;
+  resourcesIntroImageKey?: string | null;
+  resourcesIntroImageAlt?: string | null;
+  linkedResourceIds?: string[];
+  tabCards?: ProductTabCardAdminItem[];
 }
+
+export type ProductAdminUpsertBody = Partial<Omit<ProductAdminItem, "tabCards">> & {
+  tabCards?: ProductTabCardReplacePayload[];
+  resourcesTab?: ProductResourcesTabPayload;
+};
 
 export type ResourceType =
   | "WHITEPAPER"
   | "DATASHEET"
   | "CASE_STUDY"
-  | "WEBINAR"
   | "VIDEO"
   | "OTHER";
 
@@ -172,6 +215,8 @@ export interface ResourceAdminItem extends ContentAdminBase {
   resourceType: ResourceType;
   fileKey?: string;
   externalUrl?: string;
+  /** S3 key for auto-generated PDF first-page JPEG; set by the API after save. */
+  filePreviewImageKey?: string | null;
 }
 
 export interface MediaAdminItem {
@@ -408,19 +453,14 @@ export function getProduct(id: string): Promise<ProductAdminItem> {
   return adminFetch<ProductAdminItem>(`/admin/products/${id}`);
 }
 
-export function createProduct(
-  body: Partial<ProductAdminItem>,
-): Promise<ProductAdminItem> {
+export function createProduct(body: ProductAdminUpsertBody): Promise<ProductAdminItem> {
   return adminFetch<ProductAdminItem>("/admin/products", {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
-export function updateProduct(
-  id: string,
-  body: Partial<ProductAdminItem>,
-): Promise<ProductAdminItem> {
+export function updateProduct(id: string, body: ProductAdminUpsertBody): Promise<ProductAdminItem> {
   return adminFetch<ProductAdminItem>(`/admin/products/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
@@ -601,6 +641,52 @@ export function getFormSubmission(
   return adminFetch<FormSubmissionAdminItem>(`/admin/forms/${id}`);
 }
 
+/**
+ * Fetches the CSV export with the current admin token and triggers a browser download.
+ * Omit {@link formType} to include every submission.
+ */
+export async function downloadFormSubmissionsCsv(formType?: string): Promise<void> {
+  const token = getStoredToken();
+  const q = new URLSearchParams();
+  if (formType) q.set("formType", formType);
+  const query = q.toString();
+  const path = `/admin/forms/export.csv${query ? `?${query}` : ""}`;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    const text = await res.text();
+    try {
+      const body = JSON.parse(text) as { message?: string };
+      if (body?.message) message = body.message;
+    } catch {
+      if (text) message = text.slice(0, 200);
+    }
+    throw new AdminApiError(res.status, message);
+  }
+
+  const blob = await res.blob();
+  const cd = res.headers.get("Content-Disposition");
+  let filename = "submissions.csv";
+  if (cd) {
+    const m = /filename="([^"]+)"/.exec(cd);
+    if (m) filename = m[1];
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export function listUsers(params?: {
@@ -768,6 +854,8 @@ export function listAuditLog(params?: {
   if (params?.action) q.set("action", params.action);
   if (params?.actor) q.set("actor", params.actor);
   if (params?.targetId) q.set("targetId", params.targetId);
+  // Unique URL per request so intermediaries cannot return a cached page of audit rows.
+  q.set("_", String(Date.now()));
   return adminFetch<PagedResponse<AuditLogItem>>(
     `/admin/audit?${q.toString()}`,
   );

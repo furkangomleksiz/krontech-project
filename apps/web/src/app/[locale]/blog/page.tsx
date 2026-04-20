@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BlogCard } from "@/components/sections/BlogCard";
+import { BlogListPagination } from "@/components/sections/BlogListPagination";
 import { HighlightsSidebar } from "@/components/sections/HighlightsSidebar";
 import { PageHero } from "@/components/sections/PageHero";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -11,8 +12,16 @@ import { breadcrumbSchema } from "@/lib/schema";
 import { isValidLocale } from "@/lib/i18n";
 import type { Locale } from "@/types/content";
 
+function parseUserBlogPage(raw: string | string[] | undefined): number {
+  const s = Array.isArray(raw) ? raw[0] : raw;
+  const n = parseInt(s ?? "1", 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.floor(n);
+}
+
 interface BlogListPageProps {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }
 
 export async function generateMetadata({ params }: BlogListPageProps): Promise<Metadata> {
@@ -24,12 +33,21 @@ export async function generateMetadata({ params }: BlogListPageProps): Promise<M
   );
 }
 
-export default async function BlogListPage({ params }: BlogListPageProps) {
+export default async function BlogListPage({ params, searchParams }: BlogListPageProps) {
   const { locale } = await params;
   if (!isValidLocale(locale)) notFound();
 
   const l = locale as Locale;
-  const posts = await getBlogList(l);
+  const sp = await searchParams;
+  const userPage = parseUserBlogPage(sp?.page);
+  const { posts, totalPages } = await getBlogList(l, { page: userPage - 1 });
+
+  if (totalPages === 0 && userPage > 1) {
+    redirect(`/${l}/blog`);
+  }
+  if (totalPages > 0 && userPage > totalPages) {
+    redirect(`/${l}/blog${totalPages > 1 ? `?page=${totalPages}` : ""}`);
+  }
 
   return (
     <>
@@ -54,13 +72,7 @@ export default async function BlogListPage({ params }: BlogListPageProps) {
                 ))}
               </ul>
 
-              {/* Pagination */}
-              <nav className="pagination" aria-label="Blog pagination">
-                <button className="page-btn page-btn--active" aria-current="page" aria-label="Page 1">1</button>
-                <button className="page-btn" aria-label="Page 2">2</button>
-                <button className="page-btn" aria-label="Page 3">3</button>
-                <button className="page-btn" aria-label="Next page">›</button>
-              </nav>
+              <BlogListPagination locale={l} currentPage={userPage} totalPages={totalPages} />
             </div>
 
             {/* Sidebar */}

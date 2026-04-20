@@ -42,6 +42,9 @@ public class ResourceService {
                 : null;
 
         String downloadUrl = resolveDownloadUrl(resource);
+        String previewImageUrl = resource.getFilePreviewImageKey() != null
+                ? objectStorageClient.buildPublicUrl(resource.getFilePreviewImageKey())
+                : null;
 
         return new ResourceResponse(
                 resource.getSlug(),
@@ -50,6 +53,7 @@ public class ResourceService {
                 resource.getSummary(),
                 resource.getResourceType().name(),
                 heroImageUrl,
+                previewImageUrl,
                 downloadUrl
         );
     }

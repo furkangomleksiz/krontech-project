@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import {
   getBlogPost,
   updateBlogPost,
-  patchBlogSeo,
   publishContent,
   scheduleContent,
   unpublishContent,
@@ -25,9 +24,12 @@ import {
 } from "@/components/admin/ui";
 import { MediaPicker } from "@/components/admin/MediaPicker";
 import { LocaleLinker } from "@/components/admin/LocaleLinker";
+import { EntityAuditHistory } from "@/components/admin/EntityAuditHistory";
+import { dynamicSegmentId } from "@/lib/route-params";
 
 export default function EditBlogPostPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string | string[] }>();
+  const id = dynamicSegmentId(params.id);
   const [item, setItem] = useState<BlogAdminItem | null>(null);
   const [form, setForm] = useState({
     slug: "", locale: "tr", title: "", summary: "", heroImageKey: "",
@@ -41,6 +43,7 @@ export default function EditBlogPostPage() {
   const [success, setSuccess] = useState("");
   const [showSchedule, setShowSchedule] = useState(false);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
+  const [auditRefresh, setAuditRefresh] = useState(0);
 
   useEffect(() => {
     getBlogPost(id)
@@ -65,8 +68,10 @@ export default function EditBlogPostPage() {
     e.preventDefault(); setSaving(true); setError(""); setSuccess("");
     try {
       const updated = await updateBlogPost(id, { ...form, contentGroupId: form.contentGroupId || undefined, seo });
-      await patchBlogSeo(id, seo);
-      setItem(updated); setSuccess("Changes saved.");
+      setItem(updated);
+      setForm((f) => ({ ...f, slug: updated.slug, locale: updated.locale }));
+      setAuditRefresh((r) => r + 1);
+      setSuccess("Changes saved.");
     } catch (err) { setError(err instanceof Error ? err.message : "Save failed."); }
     finally { setSaving(false); }
   }
@@ -76,6 +81,7 @@ export default function EditBlogPostPage() {
     try {
       const res = await publishContent(form.slug, form.locale);
       setItem((p) => p ? { ...p, status: res.status as BlogAdminItem["status"], publishedAt: res.publishedAt } : p);
+      setAuditRefresh((r) => r + 1);
       setSuccess("Published.");
     } catch (e) { setError(e instanceof Error ? e.message : "Publish failed."); } finally { setPubBusy(false); }
   }
@@ -84,6 +90,7 @@ export default function EditBlogPostPage() {
     try {
       const res = await unpublishContent(form.slug, form.locale);
       setItem((p) => p ? { ...p, status: res.status as BlogAdminItem["status"] } : p);
+      setAuditRefresh((r) => r + 1);
       setSuccess("Unpublished.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unpublish failed."); } finally { setPubBusy(false); }
   }
@@ -92,6 +99,7 @@ export default function EditBlogPostPage() {
     try {
       const res = await scheduleContent(form.slug, form.locale, dt);
       setItem((p) => p ? { ...p, status: res.status as BlogAdminItem["status"], scheduledAt: res.scheduledAt } : p);
+      setAuditRefresh((r) => r + 1);
       setSuccess(`Scheduled for ${new Date(dt).toLocaleString()}.`);
     } catch (e) { setError(e instanceof Error ? e.message : "Schedule failed."); } finally { setPubBusy(false); }
   }
@@ -100,6 +108,7 @@ export default function EditBlogPostPage() {
     try {
       const res = await rotatePreviewToken(id);
       setPreviewToken(res.token);
+      setAuditRefresh((r) => r + 1);
       setSuccess("Preview link generated.");
     } catch (e) { setError(e instanceof Error ? e.message : "Preview rotation failed."); } finally { setPubBusy(false); }
   }
@@ -213,6 +222,8 @@ export default function EditBlogPostPage() {
           </form>
         </div>
       </div>
+
+      <EntityAuditHistory targetId={id} refreshKey={auditRefresh} />
     </>
   );
 }

@@ -1,10 +1,12 @@
 package com.krontech.api.products.dto;
 
 import com.krontech.api.seo.dto.SeoRequest;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ProductCreateRequest(
@@ -16,6 +18,8 @@ public record ProductCreateRequest(
         @Size(max = 500) String heroImageKey,
         @NotBlank String highlights,
         Instant scheduledAt,
+        @Valid List<ProductTabCardWriteRequest> tabCards,
+        @Valid ProductResourcesTabRequest resourcesTab,
         SeoRequest seo
 ) {
 }

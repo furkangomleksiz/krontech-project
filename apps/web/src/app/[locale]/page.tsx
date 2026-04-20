@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BlogHighlightsSection } from "@/components/sections/BlogHighlightsSection";
+import { CmsPagesHighlightsSection } from "@/components/sections/CmsPagesHighlightsSection";
 import { HomeHero } from "@/components/sections/HomeHero";
 import { ProductCardsSection } from "@/components/sections/ProductCardsSection";
 import { StatsSection } from "@/components/sections/StatsSection";
 import { WhyKronSection } from "@/components/sections/WhyKronSection";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { getBlogList, getPublicPage } from "@/lib/api/public-content";
+import { getPublicPage, getPublicProductList, getPublicPublishedPageList } from "@/lib/api/public-content";
 import { mockAwards, mockStats } from "@/lib/api/mock-content";
 import { buildMetadata } from "@/lib/seo";
 import { websiteSchema } from "@/lib/schema";
@@ -29,7 +29,10 @@ export default async function HomePage({ params }: HomePageProps) {
   if (!isValidLocale(locale)) notFound();
 
   const l = locale as Locale;
-  const posts = await getBlogList(l);
+  const [cmsPages, products] = await Promise.all([
+    getPublicPublishedPageList(l, { limit: 24 }),
+    getPublicProductList(l),
+  ]);
 
   return (
     <>
@@ -40,10 +43,10 @@ export default async function HomePage({ params }: HomePageProps) {
       */}
       <JsonLd data={websiteSchema(l)} />
       <HomeHero locale={l} />
-      <ProductCardsSection locale={l} />
+      <ProductCardsSection locale={l} products={products} />
       <WhyKronSection locale={l} awards={mockAwards} />
       <StatsSection locale={l} stats={mockStats} />
-      <BlogHighlightsSection locale={l} posts={posts} />
+      <CmsPagesHighlightsSection locale={l} pages={cmsPages} />
     </>
   );
 }

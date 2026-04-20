@@ -15,6 +15,9 @@ public interface PageRepository extends JpaRepository<Page, UUID> {
 
     Optional<Page> findBySlugAndLocale(String slug, LocaleCode locale);
 
+    /** True if another row (any page type) already owns this slug+locale pair. */
+    boolean existsBySlugAndLocaleAndIdNot(String slug, LocaleCode locale, UUID id);
+
     Optional<Page> findByPreviewToken(UUID previewToken);
 
     /** Returns all locale variants linked to the same content group. */
@@ -26,6 +29,17 @@ public interface PageRepository extends JpaRepository<Page, UUID> {
     org.springframework.data.domain.Page<Page> findByStatus(PublishStatus status, Pageable pageable);
 
     org.springframework.data.domain.Page<Page> findByLocaleAndStatus(LocaleCode locale, PublishStatus status, Pageable pageable);
+
+    /**
+     * Published pages for a locale, excluding one slug (e.g. {@code home} for homepage carousels).
+     * Ordered by most recently updated in the CMS.
+     */
+    org.springframework.data.domain.Page<Page> findByLocaleAndStatusAndSlugNotOrderByUpdatedAtDesc(
+            LocaleCode locale,
+            PublishStatus status,
+            String slug,
+            Pageable pageable
+    );
 
     /**
      * Used by the scheduled promotion job to find pages whose publish time has arrived.

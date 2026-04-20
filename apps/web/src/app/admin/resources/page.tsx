@@ -67,7 +67,6 @@ export default function ResourcesListPage() {
               <option value="WHITEPAPER">Whitepaper</option>
               <option value="DATASHEET">Datasheet</option>
               <option value="CASE_STUDY">Case Study</option>
-              <option value="WEBINAR">Webinar</option>
               <option value="VIDEO">Video</option>
               <option value="OTHER">Other</option>
             </select>

@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import ProductDetailTabs from "@/components/sections/ProductDetailTabs";
+import { normalizeProductLinkedResources, normalizeProductResourcesIntro } from "@/lib/api/public-content";
+import { normalizeDetailTabs } from "@/lib/product-detail-tabs";
+import type { Locale, ProductDetailTabSection, ProductResourcesIntro, PublicResourceItem } from "@/types/content";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1").replace(/\/$/, "");
 
@@ -24,6 +28,22 @@ interface PreviewPage {
   heroImageUrl?: string;
   seo?: SeoMeta;
   blocks: BlockItem[];
+  /** From {@code PublicPageResponse}; set for product pages. */
+  pageType?: string;
+  detailTabs?: ProductDetailTabSection[];
+  resourcesIntro?: ProductResourcesIntro | null;
+  linkedResources?: PublicResourceItem[];
+  /** Blog post body text; composite pages use structured blocks instead. */
+  body?: string | null;
+}
+
+function splitBlogBodyToParagraphs(body: string): string[] {
+  const t = body.trim();
+  if (!t) return [];
+  return t
+    .split(/\n\s*\n/)
+    .map((p) => p.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
 }
 
 function BlockPreview({ block, index }: { block: BlockItem; index: number }) {
@@ -138,6 +158,47 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const previewLocale = useMemo((): Locale => {
+    const l = page?.locale?.toLowerCase();
+    return l === "tr" || l === "en" ? l : "en";
+  }, [page?.locale]);
+
+  const normalizedDetailTabs = useMemo(
+    () => (page ? normalizeDetailTabs(page.detailTabs) : []),
+    [page],
+  );
+
+  const previewResourcesIntro = useMemo(() => {
+    if (!page) return null;
+    const raw = page as unknown as Record<string, unknown>;
+    return normalizeProductResourcesIntro(raw.resourcesIntro ?? raw.resources_intro);
+  }, [page]);
+
+  const previewLinkedResources = useMemo(() => {
+    if (!page) return [];
+    const raw = page as unknown as Record<string, unknown>;
+    return normalizeProductLinkedResources(raw.linkedResources ?? raw.linked_resources);
+  }, [page]);
+
+  const hasTabCards =
+    normalizedDetailTabs.some((s) => s.cards.length > 0) ||
+    previewResourcesIntro != null ||
+    previewLinkedResources.length > 0;
+
+  const showProductTabPreview =
+    Boolean(page) &&
+    (page!.pageType === "product" ||
+      hasTabCards ||
+      Boolean(page!.detailTabs && page!.detailTabs.length > 0));
+
+  const articleParagraphs = useMemo(() => {
+    const raw = page?.body;
+    if (typeof raw !== "string" || !raw.trim()) return [];
+    return splitBlogBodyToParagraphs(raw);
+  }, [page?.body]);
+
+  const hasArticleBody = articleParagraphs.length > 0;
+
   useEffect(() => {
     if (!token) {
       setError("No preview token provided.");
@@ -239,11 +300,13 @@ export default function PreviewPage() {
                   alt={page.title}
                   style={{
                     width: "100%",
-                    height: 240,
-                    objectFit: "cover",
+                    maxHeight: 420,
+                    height: "auto",
+                    objectFit: "contain",
                     borderRadius: 8,
                     marginBottom: 20,
                     display: "block",
+                    background: "#e5e7eb",
                   }}
                 />
               )}
@@ -277,6 +340,80 @@ export default function PreviewPage() {
               )}
             </div>
 
+            {/* Blog / article body (not ContentBlocks — stored on blog_posts.body) */}
+            {hasArticleBody && (
+              <div style={{ marginBottom: 28 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "#9ca3af",
+                    marginBottom: 12,
+                  }}
+                >
+                  Article
+                </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    padding: "20px 22px",
+                    color: "#374151",
+                    fontSize: 16,
+                    lineHeight: 1.65,
+                  }}
+                >
+                  {articleParagraphs.map((para, i) => (
+                    <p key={i} style={{ margin: i === 0 ? 0 : "1em 0 0" }}>
+                      {para}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Product tab cards (not ContentBlocks — stored on product_tab_cards) */}
+            {showProductTabPreview && (
+              <div style={{ marginTop: 8, marginBottom: 28 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "#9ca3af",
+                    marginBottom: 12,
+                  }}
+                >
+                  Product detail tabs
+                  {page.pageType ? (
+                    <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>
+                      {" "}
+                      (page type: {page.pageType})
+                    </span>
+                  ) : null}
+                </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    overflow: "hidden",
+                  }}
+                >
+                  <ProductDetailTabs
+                    detailTabs={normalizedDetailTabs}
+                    locale={previewLocale}
+                    resourcesIntro={previewResourcesIntro}
+                    linkedResources={previewLinkedResources}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Content blocks */}
             {page.blocks.length > 0 && (
               <>
@@ -300,7 +437,10 @@ export default function PreviewPage() {
               </>
             )}
 
-            {page.blocks.length === 0 && (
+            {page.blocks.length === 0 &&
+              !hasTabCards &&
+              !hasArticleBody &&
+              !showProductTabPreview && (
               <div
                 style={{
                   padding: "24px",

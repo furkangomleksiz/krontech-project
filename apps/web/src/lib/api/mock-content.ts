@@ -41,8 +41,18 @@ export const mockPages: Record<string, PublicPageModel> = {
       { id: "updates", type: "article-list", heading: "Keep up to Date", items: [] },
     ],
   },
-  "tr:resources": page("tr", "resources", "Kaynaklar", "Ürün ve sektör kaynakları."),
-  "en:resources": page("en", "resources", "Resources", "Product and industry resources."),
+  "tr:resources": page(
+    "tr",
+    "resources",
+    "Siber Güvenlik Kaynakları | Kron",
+    "Webinarlar, vaka çalışmaları ve veri sayfalarıyla Kron'un Ayrıcalıklı Erişim Yönetimi çözümlerini keşfedin.",
+  ),
+  "en:resources": page(
+    "en",
+    "resources",
+    "Cybersecurity Resources | Kron",
+    "Explore webinars, case studies, and datasheets for Kron's high-end Privileged Access Management solutions.",
+  ),
   "tr:contact":   page("tr", "contact", "İletişim", "Bizimle iletişime geçin."),
   "en:contact":   page("en", "contact", "Contact", "Get in touch with us."),
 };

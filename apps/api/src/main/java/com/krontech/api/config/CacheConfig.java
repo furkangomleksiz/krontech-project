@@ -1,9 +1,13 @@
 package com.krontech.api.config;
 
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -28,6 +32,8 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  *   blog-list     — blog post list (per locale)       10 min
  *   blog-detail   — blog post detail                  20 min
  *   resource-list — resource listing (per locale)     10 min
+ *   product-list  — published products (per locale)    10 min
+ *   page-list     — published CMS pages strip (per locale + limit) 10 min
  * </pre>
  *
  * <h2>Invalidation</h2>
@@ -37,14 +43,14 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  * Next.js frontend so the browser-visible HTML is refreshed immediately.
  *
  * <h2>If Redis is unavailable</h2>
- * Spring's cache abstraction fails gracefully: {@code @Cacheable} method calls fall through
- * to the actual service method; {@code cache.evict()} logs a warning and continues.
+ * {@link LenientRedisCacheErrorHandler} ensures {@code @Cacheable} methods still complete
+ * (read-through from DB) when Redis GET/PUT throws. Eviction also stays non-fatal.
  * Rate-limit counters (in {@link com.krontech.api.infrastructure.ratelimit.RateLimitService})
  * use a separate {@code StringRedisTemplate} and fail independently.
  */
 @Configuration
 @EnableCaching
-public class CacheConfig {
+public class CacheConfig implements CachingConfigurer {
 
     /**
      * Default TTL applied to any cache name not explicitly listed in
@@ -62,13 +68,30 @@ public class CacheConfig {
     }
 
     @Bean
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new LenientRedisCacheErrorHandler();
+    }
+
+    /**
+     * Redis {@link CacheManager} bean (not an override of {@link CachingConfigurer#cacheManager()} —
+     * that default method takes no arguments in Spring Framework 6).
+     */
+    @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        // Use the no-arg serializer so Spring Data Redis applies its default typing setup (required
+        // to round-trip @Cacheable return types). Passing a bare Spring ObjectMapper breaks that and
+        // can deserialize cache entries as wrong shapes → empty lists on the public site.
+        // JavaTimeModule fixes Instant etc. on PUT without dropping default typing.
+        GenericJackson2JsonRedisSerializer redisSerializer = new GenericJackson2JsonRedisSerializer();
+        redisSerializer.configure(mapper -> {
+            mapper.registerModule(new JavaTimeModule());
+            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        });
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(DEFAULT_TTL)
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(
-                                new GenericJackson2JsonRedisSerializer()
-                        )
+                        RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer)
                 )
                 .disableCachingNullValues();
 
@@ -79,6 +102,8 @@ public class CacheConfig {
         perCacheConfigs.put("blog-list",     base.entryTtl(Duration.ofMinutes(10)));
         perCacheConfigs.put("blog-detail",   base.entryTtl(Duration.ofMinutes(20)));
         perCacheConfigs.put("resource-list", base.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfigs.put("product-list", base.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfigs.put("page-list", base.entryTtl(Duration.ofMinutes(10)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(base)

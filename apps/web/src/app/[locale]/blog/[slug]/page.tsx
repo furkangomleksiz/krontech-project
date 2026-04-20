@@ -4,6 +4,7 @@ import { FaqAccordion } from "@/components/sections/FaqAccordion";
 import { HighlightsSidebar } from "@/components/sections/HighlightsSidebar";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { normalizeBlogHeroImageUrl } from "@/lib/blog-hero-image";
 import { getBlogPost } from "@/lib/api/public-content";
 import { mockBlogHighlights } from "@/lib/api/mock-content";
 import { buildBlogMetadata } from "@/lib/seo";
@@ -29,6 +30,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
   const l = locale as Locale;
   const post = await getBlogPost(l, slug);
+  const coverSrc = normalizeBlogHeroImageUrl(post.coverImageUrl);
   const postUrl = canonicalUrl(l, `/blog/${slug}`);
 
   const breadcrumbs = [
@@ -40,7 +42,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const jsonLdSchemas = [
     articleSchema(post, postUrl),
     breadcrumbSchema(breadcrumbs),
-    ...(post.faq.length > 0 ? [faqSchema(post.faq)] : []),
+    ...((post.faq?.length ?? 0) > 0 ? [faqSchema(post.faq)] : []),
   ];
 
   return (
@@ -72,9 +74,9 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             {/* Cover image */}
             <div className="article-cover" aria-hidden="true">
-              {post.coverImageUrl && (
-                <img src={post.coverImageUrl} alt={post.title} itemProp="image" />
-              )}
+              {coverSrc ? (
+                <img src={coverSrc} alt={post.title} itemProp="image" />
+              ) : null}
             </div>
 
             {/* Body */}
@@ -90,7 +92,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
         </div>
 
         {/* FAQs — rendered as visible text (not hidden) for GEO */}
-        {post.faq.length > 0 && (
+        {(post.faq?.length ?? 0) > 0 && (
           <section aria-label="Frequently asked questions">
             <FaqAccordion items={post.faq} />
           </section>

@@ -23,20 +23,25 @@
  *   unintentional cache purges from link pre-fetchers.
  */
 
+import { isValidLocale } from "@/lib/i18n";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const secret = request.nextUrl.searchParams.get("secret");
+  const secret = request.nextUrl.searchParams.get("secret")?.trim();
   const path = request.nextUrl.searchParams.get("path");
 
   // Validate secret — fail early before any cache operations
-  const expectedSecret = process.env.REVALIDATE_SECRET;
+  const expectedSecret = process.env.REVALIDATE_SECRET?.trim();
   if (!expectedSecret || !secret || secret !== expectedSecret) {
-    return NextResponse.json(
-      { message: "Invalid or missing revalidation secret" },
-      { status: 401 },
-    );
+    const body: { message: string; hint?: string } = {
+      message: "Invalid or missing revalidation secret",
+    };
+    if (process.env.NODE_ENV === "development" && !expectedSecret) {
+      body.hint =
+        "Next.js has no REVALIDATE_SECRET in process.env. Add it to apps/web/.env.local and restart the dev server (env is read at startup).";
+    }
+    return NextResponse.json(body, { status: 401 });
   }
 
   if (!path) {
@@ -47,10 +52,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // Revalidate the specific page path.
-    // "page" type invalidates only this exact URL; "layout" would invalidate all
-    // pages using the matching layout (more aggressive — not needed here).
     revalidatePath(path, "page");
+
+    // Also revalidate the `[locale]` layout so list pages and shared `fetch()` caches
+    // under that locale refresh reliably (blog list vs detail can otherwise diverge).
+    const firstSegment = path.split("/").filter(Boolean)[0];
+    if (firstSegment && isValidLocale(firstSegment)) {
+      revalidatePath(`/${firstSegment}`, "layout");
+    }
 
     return NextResponse.json({ revalidated: true, path });
   } catch (err) {

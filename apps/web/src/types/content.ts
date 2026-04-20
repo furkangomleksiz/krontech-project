@@ -32,6 +32,17 @@ export interface CardItem {
   imageUrl?: string;
 }
 
+/** Row from GET /api/v1/public/pages?locale=… (published CMS pages, admin Pages tab). */
+export interface PublicPageListItem {
+  slug: string;
+  locale: string;
+  title: string;
+  summary: string;
+  heroImageUrl: string | null;
+  pageType: string;
+  publishedAt: string | null;
+}
+
 export interface PublicPageModel {
   locale: Locale;
   slug: string;
@@ -66,9 +77,84 @@ export interface BlogPostPreview {
   publishedAt: string;
 }
 
+/** Paginated blog listing; aligns with GET /api/v1/public/blog. */
+export interface BlogListResult {
+  posts: BlogPostPreview[];
+  /** Zero-based page index (API shape). */
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface BlogPostDetail extends BlogPostPreview {
   content: string[];
   faq: Array<{ question: string; answer: string }>;
+}
+
+/* ── Product listing (CMS / public API) ──────────────────────── */
+
+export interface ProductListItem {
+  slug: string;
+  title: string;
+  summary: string;
+  heroImageUrl?: string | null;
+  featureBullets: string[];
+}
+
+/** Public API tab ids for product detail (`/public/products/{slug}`). */
+export type ProductDetailTabId =
+  | "solution"
+  | "how_it_works"
+  | "key_benefits"
+  | "resources";
+
+export interface ProductTabCardPublic {
+  sortOrder: number;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  imageAlt: string | null;
+}
+
+export interface ProductDetailTabSection {
+  tab: ProductDetailTabId;
+  cards: ProductTabCardPublic[];
+}
+
+/** Wide intro card on the product Resources tab (CMS). */
+export interface ProductResourcesIntro {
+  title: string | null;
+  body: string | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+}
+
+/** SEO block returned inside public product API responses. */
+export interface ProductPublicSeo {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  noIndex: boolean;
+  ogTitle: string | null;
+  ogDescription: string | null;
+  ogImageUrl: string | null;
+  structuredDataJson: string | null;
+}
+
+/** Full product detail from `GET /public/products/{slug}`. */
+export interface ProductDetail {
+  slug: string;
+  locale: Locale;
+  title: string;
+  summary: string;
+  highlights: string;
+  heroImageUrl: string | null;
+  seo: ProductPublicSeo;
+  detailTabs: ProductDetailTabSection[];
+  /** When set (non-empty), replaces legacy Resources tab cards with intro + linked documents. */
+  resourcesIntro: ProductResourcesIntro | null;
+  linkedResources: PublicResourceItem[];
 }
 
 /* ── Product features (product detail page) ─────────────────── */
@@ -80,6 +166,7 @@ export interface ProductFeature {
   titleHighlight?: string; // the word to mark in blue
   description: string;
   imageUrl?: string;
+  imageAlt?: string;
   reverse?: boolean; // true = image on left, text on right
 }
 
@@ -89,6 +176,19 @@ export interface Datasheet {
   id: string;
   title: string;
   coverImageUrl?: string;
+  downloadUrl: string;
+}
+
+/** Row from `GET /api/v1/public/resources` (published resources). */
+export interface PublicResourceItem {
+  slug: string;
+  locale: string;
+  title: string;
+  summary: string;
+  resourceType: string;
+  heroImageUrl: string | null;
+  /** First-page JPEG from the API when the file is a PDF; shown when heroImageUrl is absent. */
+  previewImageUrl: string | null;
   downloadUrl: string;
 }
 

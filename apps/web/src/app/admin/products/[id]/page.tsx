@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  getProduct, updateProduct, patchProductSeo,
+  getProduct, updateProduct,
   publishContent, scheduleContent, unpublishContent, rotatePreviewToken,
   type ProductAdminItem, type SeoAdminFields,
 } from "@/lib/api/admin";
@@ -13,9 +13,26 @@ import {
 } from "@/components/admin/ui";
 import { MediaPicker } from "@/components/admin/MediaPicker";
 import { LocaleLinker } from "@/components/admin/LocaleLinker";
+import {
+  ProductTabCardsEditor,
+  flattenTabCardsForApi,
+  tabCardsFromApi,
+  type ProductTabKey,
+  type TabCardDraft,
+} from "@/components/admin/ProductTabCardsEditor";
+import {
+  emptyResourcesTabForm,
+  ProductResourcesTabEditor,
+  resourcesTabFromApi,
+  toResourcesTabPayload,
+  type ProductResourcesTabFormState,
+} from "@/components/admin/ProductResourcesTabEditor";
+import { EntityAuditHistory } from "@/components/admin/EntityAuditHistory";
+import { dynamicSegmentId } from "@/lib/route-params";
 
 export default function EditProductPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string | string[] }>();
+  const id = dynamicSegmentId(params.id);
   const [item, setItem] = useState<ProductAdminItem | null>(null);
   const [form, setForm] = useState({
     slug: "", locale: "tr", title: "", summary: "", heroImageKey: "", highlights: "", contentGroupId: "",
@@ -28,6 +45,11 @@ export default function EditProductPage() {
   const [success, setSuccess] = useState("");
   const [showSchedule, setShowSchedule] = useState(false);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
+  const [tabCardsByTab, setTabCardsByTab] = useState<Record<ProductTabKey, TabCardDraft[]>>(() =>
+    tabCardsFromApi(undefined),
+  );
+  const [resourcesTab, setResourcesTab] = useState<ProductResourcesTabFormState>(() => emptyResourcesTabForm());
+  const [auditRefresh, setAuditRefresh] = useState(0);
 
   useEffect(() => {
     getProduct(id)
@@ -39,6 +61,8 @@ export default function EditProductPage() {
           contentGroupId: p.contentGroupId ?? "",
         });
         setSeo(p.seo ?? { noIndex: false });
+        setTabCardsByTab(tabCardsFromApi(p.tabCards));
+        setResourcesTab(resourcesTabFromApi(p));
         if (p.previewToken) setPreviewToken(String(p.previewToken));
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load."))
@@ -50,9 +74,19 @@ export default function EditProductPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError(""); setSuccess("");
     try {
-      const updated = await updateProduct(id, { ...form, contentGroupId: form.contentGroupId || undefined, seo });
-      await patchProductSeo(id, seo);
-      setItem(updated); setSuccess("Changes saved.");
+      const updated = await updateProduct(id, {
+        ...form,
+        contentGroupId: form.contentGroupId || undefined,
+        tabCards: flattenTabCardsForApi(tabCardsByTab),
+        resourcesTab: toResourcesTabPayload(resourcesTab),
+        seo,
+      });
+      setItem(updated);
+      setForm((f) => ({ ...f, slug: updated.slug, locale: updated.locale }));
+      setTabCardsByTab(tabCardsFromApi(updated.tabCards));
+      setResourcesTab(resourcesTabFromApi(updated));
+      setAuditRefresh((r) => r + 1);
+      setSuccess("Changes saved.");
     } catch (err) { setError(err instanceof Error ? err.message : "Save failed."); }
     finally { setSaving(false); }
   }
@@ -62,6 +96,7 @@ export default function EditProductPage() {
     try {
       const res = await publishContent(form.slug, form.locale);
       setItem((p) => p ? { ...p, status: res.status as ProductAdminItem["status"] } : p);
+      setAuditRefresh((r) => r + 1);
       setSuccess("Published.");
     } catch (e) { setError(e instanceof Error ? e.message : "Publish failed."); } finally { setPubBusy(false); }
   }
@@ -70,6 +105,7 @@ export default function EditProductPage() {
     try {
       const res = await unpublishContent(form.slug, form.locale);
       setItem((p) => p ? { ...p, status: res.status as ProductAdminItem["status"] } : p);
+      setAuditRefresh((r) => r + 1);
       setSuccess("Unpublished.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unpublish failed."); } finally { setPubBusy(false); }
   }
@@ -78,6 +114,7 @@ export default function EditProductPage() {
     try {
       const res = await scheduleContent(form.slug, form.locale, dt);
       setItem((p) => p ? { ...p, status: res.status as ProductAdminItem["status"], scheduledAt: res.scheduledAt } : p);
+      setAuditRefresh((r) => r + 1);
       setSuccess(`Scheduled for ${new Date(dt).toLocaleString()}.`);
     } catch (e) { setError(e instanceof Error ? e.message : "Schedule failed."); } finally { setPubBusy(false); }
   }
@@ -85,7 +122,9 @@ export default function EditProductPage() {
     setPubBusy(true); setError("");
     try {
       const res = await rotatePreviewToken(id);
-      setPreviewToken(res.token); setSuccess("Preview link generated.");
+      setPreviewToken(res.token);
+      setAuditRefresh((r) => r + 1);
+      setSuccess("Preview link generated.");
     } catch (e) { setError(e instanceof Error ? e.message : "Preview rotation failed."); } finally { setPubBusy(false); }
   }
 
@@ -111,12 +150,15 @@ export default function EditProductPage() {
           onRotatePreviewToken={doRotatePreviewToken} busy={pubBusy} />
       )}
 
-      <div className="admin-card">
-        <div className="admin-card-body">
-          <form onSubmit={handleSave} className="admin-form">
-            {error && <ErrorBanner message={error} />}
-            {success && <SuccessBanner message={success} />}
+      <form onSubmit={handleSave} className="admin-form">
+        {error && <ErrorBanner message={error} />}
+        {success && <SuccessBanner message={success} />}
 
+        <div className="admin-card" style={{ marginBottom: 20 }}>
+          <div className="admin-card-header">
+            <p className="admin-card-title">Product details</p>
+          </div>
+          <div className="admin-card-body">
             <div className="admin-form-row admin-form-row--2">
               <div className="admin-field">
                 <label className="admin-label">Slug *</label>
@@ -154,7 +196,37 @@ export default function EditProductPage() {
               <textarea className="admin-textarea" rows={8} value={form.highlights}
                 onChange={(e) => set("highlights", e.target.value)} />
             </div>
+          </div>
+        </div>
 
+        <div className="admin-card" style={{ marginBottom: 20 }}>
+          <div className="admin-card-header">
+            <p className="admin-card-title">Detail page tabs &amp; cards</p>
+            <p style={{ fontSize: 12, color: "var(--a-text-muted)", margin: "8px 0 0", lineHeight: 1.5 }}>
+              <strong>Solution</strong>, <strong>How it works</strong>, and <strong>Key benefits</strong> use repeating
+              text + image cards. The <strong>Resources</strong> tab is configured separately (below). Order is saved
+              within each tab.
+            </p>
+          </div>
+          <div className="admin-card-body">
+            <ProductTabCardsEditor value={tabCardsByTab} onChange={setTabCardsByTab} />
+          </div>
+        </div>
+
+        <div className="admin-card" style={{ marginBottom: 20 }}>
+          <div className="admin-card-header">
+            <p className="admin-card-title">Resources tab</p>
+          </div>
+          <div className="admin-card-body">
+            <ProductResourcesTabEditor locale={form.locale} value={resourcesTab} onChange={setResourcesTab} />
+          </div>
+        </div>
+
+        <div className="admin-card">
+          <div className="admin-card-header">
+            <p className="admin-card-title">Locale variants &amp; SEO</p>
+          </div>
+          <div className="admin-card-body">
             <LocaleLinker currentLocale={form.locale} contentGroupId={form.contentGroupId}
               onChange={(v) => set("contentGroupId", v)} />
 
@@ -175,9 +247,11 @@ export default function EditProductPage() {
                 {saving ? "Saving…" : "Save Changes"}
               </button>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
+      </form>
+
+      <EntityAuditHistory targetId={id} refreshKey={auditRefresh} />
     </>
   );
 }

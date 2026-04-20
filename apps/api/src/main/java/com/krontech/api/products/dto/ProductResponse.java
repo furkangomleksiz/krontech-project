@@ -1,6 +1,7 @@
 package com.krontech.api.products.dto;
 
 import com.krontech.api.components.dto.ContentBlockResponse;
+import com.krontech.api.resources.dto.ResourceResponse;
 import com.krontech.api.seo.dto.SeoResponse;
 import java.util.List;
 
@@ -12,6 +13,9 @@ public record ProductResponse(
         String highlights,
         String heroImageUrl,
         SeoResponse seo,
+        List<ProductDetailTabSectionResponse> detailTabs,
+        ProductResourcesIntroResponse resourcesIntro,
+        List<ResourceResponse> linkedResources,
         List<ContentBlockResponse> blocks
 ) {
 }

@@ -32,6 +32,13 @@ public class ResourceItem extends Page {
     @Column(length = 1000)
     private String externalUrl;
 
+    /**
+     * S3 objectKey for a JPEG generated from the first page of the uploaded PDF ({@link #fileKey}).
+     * Null when not applicable or generation failed.
+     */
+    @Column(length = 500)
+    private String filePreviewImageKey;
+
     public ResourceType getResourceType() {
         return resourceType;
     }
@@ -54,5 +61,13 @@ public class ResourceItem extends Page {
 
     public void setExternalUrl(String externalUrl) {
         this.externalUrl = externalUrl;
+    }
+
+    public String getFilePreviewImageKey() {
+        return filePreviewImageKey;
+    }
+
+    public void setFilePreviewImageKey(String filePreviewImageKey) {
+        this.filePreviewImageKey = filePreviewImageKey;
     }
 }

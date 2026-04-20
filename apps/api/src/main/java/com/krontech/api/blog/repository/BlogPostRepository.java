@@ -20,6 +20,9 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, UUID> {
 
     Optional<BlogPost> findBySlugAndLocaleAndStatus(String slug, LocaleCode locale, PublishStatus status);
 
+    Optional<BlogPost> findByContentGroupIdAndLocaleAndStatus(
+            UUID contentGroupId, LocaleCode locale, PublishStatus status);
+
     // Admin queries — paginated, all statuses (findAllBy avoids return-type conflict with findBy variants)
     Page<BlogPost> findAllByLocale(LocaleCode locale, Pageable pageable);
 

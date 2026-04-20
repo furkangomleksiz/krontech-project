@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { DatasheetGrid } from "@/components/sections/DatasheetGrid";
 import { PageHero } from "@/components/sections/PageHero";
-import { ProductTabNav } from "@/components/sections/ProductTabNav";
+import { ResourcesHubSection } from "@/components/sections/ResourcesHubSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getPublicPage } from "@/lib/api/public-content";
-import { mockDatasheets } from "@/lib/api/mock-content";
 import { buildMetadata } from "@/lib/seo";
 import { breadcrumbSchema } from "@/lib/schema";
 import { isValidLocale } from "@/lib/i18n";
@@ -28,57 +26,33 @@ export default async function ResourcesPage({ params }: ResourcesPageProps) {
 
   const l = locale as Locale;
 
-  const title = l === "tr" ? "Kron PAM" : "Kron PAM";
+  const title = l === "tr" ? "Siber Güvenlik Kaynakları" : "Cybersecurity Resources";
   const subtitle =
     l === "tr"
-      ? "Esnek, merkezi ve katmanlı savunma güvenliği mimarisiyle Ayrıcalıklı Erişim Yönetimi platformunu keşfedin."
-      : "Establish a flexible, centrally managed and layered defense security architecture against insider threats with the world-leading Privileged Access Management platform.";
+      ? "Webinarlar, vaka çalışmaları ve veri sayfalarından oluşan siber güvenlik kütüphanemizi keşfederek Kron'un üst düzey Ayrıcalıklı Erişim Yönetimi çözümleri hakkında daha fazla bilgi edinin."
+      : "Explore our cybersecurity library of webinars, case studies, and datasheets to learn more about Kron's high-end Privileged Access Management solutions.";
+
+  const resourcesLabel = l === "tr" ? "Kaynaklar" : "Resources";
 
   return (
     <>
       <JsonLd
         data={breadcrumbSchema([
           { label: "Home", href: `/${l}` },
-          { label: "Identity & Access Management" },
-          { label: "Resources" },
+          { label: resourcesLabel },
         ])}
       />
       <PageHero
         title={title}
         subtitle={subtitle}
+        centered
         breadcrumbs={[
           { label: "Home", href: `/${l}` },
-          { label: "Identity & Access Management", href: "#" },
-          { label: "Resources" },
+          { label: resourcesLabel },
         ]}
-        ctaPrimary={{ label: "Download Datasheet", href: "#" }}
-        ctaSecondary={{ label: "Request a Demo", href: `/${l}/contact` }}
       />
 
-      <ProductTabNav activeTab="resources" />
-
-      {/* Resources intro */}
-      <section className="resources-intro section-pad" aria-label="Resources overview">
-        <div className="container">
-          <div className="resources-intro__inner">
-            <div>
-              <h2 className="resources-intro__title">
-                {l === "tr"
-                  ? "Üstün Ayrıcalıklı Erişim Yönetimi için Kaynaklar"
-                  : "Resources for the Ultimate Privileged Access Management"}
-              </h2>
-              <p className="resources-intro__desc">
-                {l === "tr"
-                  ? "Kron PAM'ın özelliklerini öğrenin ve dünyanın önde gelen PAM çözümünü detaylandıran veri sayfalarını indirin."
-                  : "Learn more about privileged access management and find Kron PAM's features. Download the datasheets detailing Kron's world-leading PAM solution."}
-              </p>
-            </div>
-            <div className="resources-intro__image" aria-hidden="true" />
-          </div>
-        </div>
-      </section>
-
-      <DatasheetGrid datasheets={mockDatasheets} locale={l} />
+      <ResourcesHubSection locale={l} />
     </>
   );
 }

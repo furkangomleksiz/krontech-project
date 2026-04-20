@@ -1,8 +1,12 @@
 package com.krontech.api.publishing.service;
 
+import com.krontech.api.pages.entity.Page;
+import com.krontech.api.pages.repository.PageRepository;
+import jakarta.annotation.PostConstruct;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +22,7 @@ import org.springframework.web.client.RestClient;
  * <h2>Two-layer eviction on every publish/unpublish</h2>
  * <ol>
  *   <li><strong>Redis (Spring Cache):</strong> Evicts the affected entries from the
- *       {@code pages}, {@code blog-list}, {@code blog-detail}, and {@code resource-list}
+ *       {@code pages}, {@code page-list}, {@code blog-list}, {@code blog-detail}, and {@code resource-list}
  *       caches managed by {@link com.krontech.api.config.CacheConfig}.  The next API
  *       request will re-populate Redis from PostgreSQL.</li>
  *   <li><strong>Next.js ISR:</strong> Asynchronously calls
@@ -52,19 +56,33 @@ public class CacheService {
 
     private final CacheManager cacheManager;
     private final RestClient restClient;
+    private final PageRepository pageRepository;
     private final String webAppUrl;
     private final String revalidateSecret;
 
     public CacheService(
             CacheManager cacheManager,
             RestClient restClient,
+            PageRepository pageRepository,
             @Value("${app.web.url:}") String webAppUrl,
             @Value("${app.web.revalidate-secret:}") String revalidateSecret
     ) {
         this.cacheManager = cacheManager;
         this.restClient = restClient;
+        this.pageRepository = pageRepository;
         this.webAppUrl = webAppUrl;
         this.revalidateSecret = revalidateSecret;
+    }
+
+    @PostConstruct
+    void logRevalidationConfig() {
+        if (webAppUrl.isBlank() || revalidateSecret.isBlank()) {
+            log.warn(
+                    "Next.js on-demand revalidation is DISABLED: set WEB_APP_URL and REVALIDATE_SECRET "
+                            + "(must match the Next.js REVALIDATE_SECRET). "
+                            + "Until then, the public site may show stale HTML until the Next.js ISR TTL expires "
+                            + "(e.g. up to 2 h for blog detail). Redis cache eviction still runs on publish/save.");
+        }
     }
 
     /**
@@ -83,12 +101,15 @@ public class CacheService {
         evictFromCache("blog-list",     locale);
         evictFromCache("blog-detail",   slug + ":" + locale);
         evictFromCache("resource-list", locale);
+        evictFromCache("product-list", locale);
+        clearCacheFully("page-list");
 
         // 2. Trigger Next.js on-demand ISR revalidation (async, non-blocking)
         List<String> paths = List.of(
                 "/" + locale,                              // homepage (shows recent blog)
                 "/" + locale + "/blog",                    // blog list
                 "/" + locale + "/blog/" + slug,            // blog post detail (if applicable)
+                "/" + locale + "/products",                // product listing
                 "/" + locale + "/products/" + slug,        // product detail (if applicable)
                 "/" + locale + "/resources"                // resources list
         );
@@ -98,6 +119,24 @@ public class CacheService {
                     log.warn("frontend_revalidation_thread_failed reason={}", ex.getMessage());
                     return null;
                 });
+    }
+
+    /**
+     * Evicts public caches for every page row sharing a {@code contentGroupId} (locale variants).
+     * Call after blog/product/page updates so linked translations and locale-switch targets stay fresh.
+     */
+    public void evictLinkedContentGroup(UUID contentGroupId) {
+        if (contentGroupId == null) {
+            return;
+        }
+        try {
+            List<Page> linked = pageRepository.findByContentGroupId(contentGroupId);
+            for (Page page : linked) {
+                evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
+            }
+        } catch (Exception e) {
+            log.warn("cache_evict_linked_group_failed groupId={} reason={}", contentGroupId, e.getMessage());
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -116,6 +155,19 @@ public class CacheService {
         } catch (Exception e) {
             // Cache eviction failure must not block the publish flow.
             log.warn("cache_evict_failed cache={} key={} reason={}", cacheName, key, e.getMessage());
+        }
+    }
+
+    /** Clears every entry in a named cache (used for {@code page-list}, which keys by locale and limit). */
+    private void clearCacheFully(String cacheName) {
+        try {
+            Cache cache = cacheManager.getCache(cacheName);
+            if (cache != null) {
+                cache.clear();
+                log.debug("cache_cleared cache={}", cacheName);
+            }
+        } catch (Exception e) {
+            log.warn("cache_clear_failed cache={} reason={}", cacheName, e.getMessage());
         }
     }
 

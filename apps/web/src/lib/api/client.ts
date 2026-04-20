@@ -6,9 +6,15 @@ interface FetchOptions extends RequestInit {
 
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { revalidateSeconds = 60, ...requestInit } = options;
+  // Next.js caches fetch() by default; revalidateSeconds <= 0 must use no-store — passing
+  // next: { revalidate: 0 } alone is not always equivalent to skipping the Data Cache.
+  const cacheConfig =
+    revalidateSeconds <= 0
+      ? { cache: "no-store" as const }
+      : { next: { revalidate: revalidateSeconds } };
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...requestInit,
-    next: { revalidate: revalidateSeconds }
+    ...cacheConfig,
   });
 
   if (!response.ok) {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import type { Locale } from "@/types/content";
 
 interface SiteHeaderProps {
@@ -15,9 +16,6 @@ const navItems = [
 ];
 
 export function SiteHeader({ locale }: SiteHeaderProps) {
-  const otherLocale: Locale = locale === "tr" ? "en" : "tr";
-  const localeLabel = locale.toUpperCase();
-
   return (
     <header className="site-header">
       <div className="nav-shell">
@@ -36,6 +34,8 @@ export function SiteHeader({ locale }: SiteHeaderProps) {
                   ? `/${locale}/contact`
                   : label === "Resources"
                   ? `/${locale}/resources`
+                  : label === "Products"
+                  ? `/${locale}/products`
                   : "#";
               return (
                 <li key={label}>
@@ -64,12 +64,7 @@ export function SiteHeader({ locale }: SiteHeaderProps) {
           </button>
 
           {/* Locale switcher */}
-          <Link href={`/${otherLocale}`} className="locale-btn" aria-label={`Switch to ${otherLocale.toUpperCase()}`}>
-            {localeLabel}
-            <svg className="nav-chevron" viewBox="0 0 10 10" aria-hidden="true">
-              <polyline points="2,3 5,7 8,3" />
-            </svg>
-          </Link>
+          <LocaleSwitcher locale={locale} />
 
           {/* Mobile hamburger */}
           <button className="mobile-menu-btn nav-icon-btn" aria-label="Open navigation menu" aria-expanded="false">

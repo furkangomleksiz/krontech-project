@@ -58,6 +58,8 @@ export const publicRoutes: PublicRoute[] = [
   { path: "",               priority: 1.0, changeFrequency: "weekly"  },
   { path: "/blog",          priority: 0.8, changeFrequency: "daily"   },
   { path: "/resources",     priority: 0.7, changeFrequency: "weekly"  },
+  { path: "/resources/case-studies", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/resources/datasheets",   priority: 0.7, changeFrequency: "weekly" },
   { path: "/contact",       priority: 0.6, changeFrequency: "monthly" },
 ];
 

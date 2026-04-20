@@ -25,15 +25,18 @@ public class ResourceAdminService {
     private final ResourceRepository resourceRepository;
     private final ContentBlockRepository contentBlockRepository;
     private final ObjectStorageClient objectStorageClient;
+    private final ResourcePdfPreviewService resourcePdfPreviewService;
 
     public ResourceAdminService(
             ResourceRepository resourceRepository,
             ContentBlockRepository contentBlockRepository,
-            ObjectStorageClient objectStorageClient
+            ObjectStorageClient objectStorageClient,
+            ResourcePdfPreviewService resourcePdfPreviewService
     ) {
         this.resourceRepository = resourceRepository;
         this.contentBlockRepository = contentBlockRepository;
         this.objectStorageClient = objectStorageClient;
+        this.resourcePdfPreviewService = resourcePdfPreviewService;
     }
 
     public Page<ResourceAdminResponse> list(
@@ -61,6 +64,7 @@ public class ResourceAdminService {
         return toResponse(findOrThrow(id));
     }
 
+    @Transactional
     public ResourceAdminResponse create(ResourceAdminRequest request) {
         validateFileOrUrl(request);
         LocaleCode localeCode = LocaleCode.valueOf(request.locale().toUpperCase());
@@ -80,9 +84,12 @@ public class ResourceAdminService {
         if (request.seo() != null) {
             SeoMapper.applyRequest(item.getSeo(), request.seo());
         }
-        return toResponse(resourceRepository.save(item));
+        ResourceItem saved = resourceRepository.save(item);
+        resourcePdfPreviewService.syncPreviewFromStoredFile(saved);
+        return toResponse(resourceRepository.save(saved));
     }
 
+    @Transactional
     public ResourceAdminResponse update(UUID id, ResourceAdminRequest request) {
         validateFileOrUrl(request);
         ResourceItem item = findOrThrow(id);
@@ -97,7 +104,9 @@ public class ResourceAdminService {
         if (request.seo() != null) {
             SeoMapper.applyRequest(item.getSeo(), request.seo());
         }
-        return toResponse(resourceRepository.save(item));
+        ResourceItem saved = resourceRepository.save(item);
+        resourcePdfPreviewService.syncPreviewFromStoredFile(saved);
+        return toResponse(resourceRepository.save(saved));
     }
 
     public void updateSeo(UUID id, SeoRequest request) {
@@ -109,6 +118,7 @@ public class ResourceAdminService {
     @Transactional
     public void delete(UUID id) {
         ResourceItem item = findOrThrow(id);
+        resourcePdfPreviewService.removePreviewObjectIfPresent(item);
         contentBlockRepository.deleteByPage(item);
         resourceRepository.delete(item);
     }
@@ -142,6 +152,7 @@ public class ResourceAdminService {
                 item.getResourceType().name(),
                 item.getFileKey(),
                 item.getExternalUrl(),
+                item.getFilePreviewImageKey(),
                 SeoMapper.toResponse(item.getSeo(), objectStorageClient),
                 item.getCreatedAt(),
                 item.getUpdatedAt()

@@ -4,9 +4,16 @@ import com.krontech.api.components.dto.ContentBlockResponse;
 import com.krontech.api.components.entity.ContentBlock;
 import com.krontech.api.components.repository.ContentBlockRepository;
 import com.krontech.api.media.service.ObjectStorageClient;
+import com.krontech.api.blog.entity.BlogPost;
 import com.krontech.api.pages.dto.PublicPageResponse;
 import com.krontech.api.pages.entity.Page;
 import com.krontech.api.pages.repository.PageRepository;
+import com.krontech.api.products.dto.ProductDetailTabSectionResponse;
+import com.krontech.api.products.dto.ProductResourcesIntroResponse;
+import com.krontech.api.products.entity.Product;
+import com.krontech.api.products.repository.ProductRepository;
+import com.krontech.api.products.service.ProductPublicContentAssembler;
+import com.krontech.api.resources.dto.ResourceResponse;
 import com.krontech.api.seo.SeoMapper;
 import java.util.List;
 import java.util.UUID;
@@ -17,15 +24,21 @@ public class PreviewService {
 
     private final PageRepository pageRepository;
     private final ContentBlockRepository contentBlockRepository;
+    private final ProductRepository productRepository;
+    private final ProductPublicContentAssembler productPublicContentAssembler;
     private final ObjectStorageClient objectStorageClient;
 
     public PreviewService(
             PageRepository pageRepository,
             ContentBlockRepository contentBlockRepository,
+            ProductRepository productRepository,
+            ProductPublicContentAssembler productPublicContentAssembler,
             ObjectStorageClient objectStorageClient
     ) {
         this.pageRepository = pageRepository;
         this.contentBlockRepository = contentBlockRepository;
+        this.productRepository = productRepository;
+        this.productPublicContentAssembler = productPublicContentAssembler;
         this.objectStorageClient = objectStorageClient;
     }
 
@@ -65,6 +78,19 @@ public class PreviewService {
                 ? objectStorageClient.buildPublicUrl(page.getHeroImageKey())
                 : null;
 
+        List<ProductDetailTabSectionResponse> detailTabs = null;
+        ProductResourcesIntroResponse resourcesIntro = null;
+        List<ResourceResponse> linkedResources = null;
+        Product productRow = resolveProduct(page);
+        if (productRow != null) {
+            var assembled = productPublicContentAssembler.assemble(productRow, false);
+            detailTabs = assembled.detailTabs();
+            resourcesIntro = assembled.resourcesIntro();
+            linkedResources = assembled.linkedResources();
+        }
+
+        String body = page instanceof BlogPost bp ? bp.getBody() : null;
+
         return new PublicPageResponse(
                 page.getSlug(),
                 page.getLocale().name().toLowerCase(),
@@ -72,7 +98,22 @@ public class PreviewService {
                 page.getSummary(),
                 heroImageUrl,
                 SeoMapper.toResponse(page.getSeo(), objectStorageClient),
-                blocks
+                blocks,
+                page.getPageType(),
+                detailTabs,
+                resourcesIntro,
+                linkedResources,
+                body
         );
+    }
+
+    private Product resolveProduct(Page page) {
+        if (page instanceof Product p) {
+            return p;
+        }
+        if ("product".equalsIgnoreCase(page.getPageType())) {
+            return productRepository.findById(page.getId()).orElse(null);
+        }
+        return null;
     }
 }
