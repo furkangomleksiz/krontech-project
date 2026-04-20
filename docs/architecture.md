@@ -5,7 +5,7 @@
 - `apps/web`: Next.js App Router frontend for public pages
 - `apps/api`: Spring Boot modular monolith API
 - `docs`: technical decisions and operating notes
-- root `docker-compose.yml`: PostgreSQL, Redis, S3-compatible storage (MinIO)
+- root `docker-compose.yml`: PostgreSQL, Redis, MinIO (+ bucket init), Spring Boot API, Next.js web (see root `README.md` for full-stack vs infra-only workflows)
 
 ## Backend style: modular monolith
 

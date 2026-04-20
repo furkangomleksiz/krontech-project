@@ -1,6 +1,6 @@
 # Krontech Monorepo
 
-A production-oriented, content-driven website platform built as a modular monolith monorepo.
+A production-oriented, content-driven website platform built as a modular monolith monorepo. It targets the **Krontech site rebuild** assignment (see `Unicorn Software Solutions Assignment.pdf` in the repository root for the full brief).
 
 ## Repository Structure
 
@@ -9,9 +9,9 @@ A production-oriented, content-driven website platform built as a modular monoli
 ├─ apps/
 │  ├─ web/   # Next.js + TypeScript public site + admin CMS
 │  └─ api/   # Spring Boot modular monolith REST API
-├─ docs/     # Architecture, content model, API, caching, publishing, SEO decisions
+├─ docs/     # Architecture, content model, API, caching, publishing, SEO/GEO decisions
 ├─ specs/    # Visual reference screenshots
-├─ docker-compose.yml
+├─ docker-compose.yml   # Full stack: Postgres, Redis, MinIO, API, web
 └─ .env.example
 ```
 
@@ -35,11 +35,11 @@ Browser
 
 **Key choices:**
 - **Modular monolith** (not microservices) — single deployable, domain-isolated packages, no distributed systems overhead for a B2B marketing site
-- **REST** (not GraphQL) — fixed response shapes, ISR-friendly URL caching, per-endpoint rate limiting
+- **REST** (not GraphQL) — fixed response shapes, ISR-friendly URL caching, per-endpoint rate limiting; rationale in [`docs/decisions.md`](docs/decisions.md)
 - **Next.js ISR + on-demand revalidation** — publish in the admin → backend evicts Redis and calls `POST /api/revalidate` → stale HTML is immediately regenerated
 - **Locale-per-row** (`slug, locale` unique pair) — TR and EN variants have independent publish states; linked by `contentGroupId`
 
-See [`docs/decisions.md`](docs/decisions.md) for full tradeoff rationale. See [`REVIEW.md`](REVIEW.md) for a reviewer/demo guide.
+See [`docs/decisions.md`](docs/decisions.md) for full tradeoff rationale. See [`REVIEW.md`](REVIEW.md) for a reviewer/demo walkthrough.
 
 ## Stack
 
@@ -50,9 +50,15 @@ See [`docs/decisions.md`](docs/decisions.md) for full tradeoff rationale. See [`
 | Database | PostgreSQL 16 |
 | Cache / rate limiting | Redis 7 |
 | Object storage | S3-compatible — MinIO locally, AWS S3 in production |
-| Local orchestration | Docker Compose |
+| Schema migrations | Flyway (`ddl-auto: validate`) |
+| Local orchestration | Docker Compose (full stack) |
 
-## Quick Start
+## Quick start
+
+### Prerequisites
+
+- **Docker** and Docker Compose (for dependencies or full stack)
+- For local hot-reload development: **JDK 17**, **Maven**, **Node.js 22+** (matches `apps/web/Dockerfile`)
 
 ### 1. Environment
 
@@ -60,39 +66,53 @@ See [`docs/decisions.md`](docs/decisions.md) for full tradeoff rationale. See [`
 cp .env.example .env
 ```
 
-The defaults in `.env.example` work out of the box for local development. Key variables:
+Edit `.env` for secrets (`JWT_SECRET`, `REVALIDATE_SECRET` in production). Defaults match local Compose and local API/Web on the host.
 
-| Variable | Purpose | Default |
+| Variable | Purpose | Typical local value |
 |---|---|---|
-| `DB_*` | PostgreSQL connection | `krontech / krontech` |
-| `REDIS_HOST` | Redis host | `localhost` |
-| `S3_*` | MinIO connection + bucket | `minio / minio123 / media` |
-| `JWT_SECRET` | **Change in production** | placeholder |
-| `CORS_ALLOWED_ORIGINS` | API allowed origins | `http://localhost:3000` |
-| `WEB_APP_URL` | Backend → Next.js URL (on-demand ISR) | `http://localhost:3000` |
-| `REVALIDATE_SECRET` | Shared secret for `/api/revalidate` | _(blank = disabled)_ |
+| `DB_*` | PostgreSQL | `krontech` / `krontech` |
+| `REDIS_*` | Redis | `localhost` + `6379` (host dev) |
+| `S3_*` | MinIO or AWS | MinIO: `http://localhost:9000`, keys in `.env.example` |
+| `JWT_SECRET` | **Change in production** | strong random string |
+| `CORS_ALLOWED_ORIGINS` | API CORS | `http://localhost:3000` |
+| `WEB_APP_URL` | Backend → Next.js (ISR revalidation) | Host dev: `http://localhost:3000`; see Compose note below |
+| `REVALIDATE_SECRET` | Shared secret for `POST /api/revalidate` | Same value in `.env` and `apps/web/.env.local` when developing on the host |
 
-> **On-demand ISR revalidation:** Set `REVALIDATE_SECRET` to the same value in both `.env` (backend) and `apps/web/.env.local`. When set, publishing content immediately invalidates the frontend ISR cache. When blank, ISR TTLs govern staleness (max 2 h).
+**On-demand ISR:** When `REVALIDATE_SECRET` is set (and matches the web app), publishing invalidates Redis and triggers Next.js revalidation. If unset, ISR TTLs govern staleness (up to 2 h for some routes).
 
-### 2. Start backing services
+### 2a. Full stack with Docker Compose (recommended for demo / “single command” startup)
+
+Builds and runs **PostgreSQL, Redis, MinIO (with bucket init), the Spring Boot API, and the Next.js web app**.
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-Starts PostgreSQL, Redis, MinIO, and a one-shot MinIO bucket initialisation container. The frontend and backend run on the host for hot-reload.
+- **Site:** `http://localhost:3000` (override with `WEB_PORT`)
+- **API:** `http://localhost:8080` (override with `API_PORT`)
+- **Swagger UI:** `http://localhost:8080/swagger-ui`
+- **MinIO console:** `http://localhost:9001` (credentials from `S3_ACCESS_KEY` / `S3_SECRET_KEY`)
 
-### 3. Run the backend
+Compose sets `WEB_APP_URL=http://web:3000` and a default `REVALIDATE_SECRET` so publish → revalidation works across containers. Override `REVALIDATE_SECRET` in `.env` for anything beyond local demos.
+
+The web image bakes `NEXT_PUBLIC_API_BASE_URL` for the **browser** (defaults to `http://localhost:8080/api/v1`). If you publish the API on a non-default host port, set `DOCKER_NEXT_PUBLIC_API_BASE_URL` before `docker compose build web` (see comments in `.env.example`). Server-side requests from the web container use `API_INTERNAL_BASE_URL` (default `http://api:8080/api/v1`).
+
+### 2b. Local development (hot reload)
+
+Run only infrastructure in Docker, then API and web on the host:
+
+```bash
+docker compose up -d postgres redis minio minio-init
+```
+
+**Terminal 1 — API**
 
 ```bash
 cd apps/api
 mvn spring-boot:run
 ```
 
-API available at `http://localhost:8080`  
-Swagger UI: `http://localhost:8080/swagger-ui`
-
-### 4. Run the frontend
+**Terminal 2 — Web**
 
 ```bash
 cd apps/web
@@ -100,7 +120,33 @@ npm install
 npm run dev
 ```
 
-Frontend available at `http://localhost:3000`
+Ensure `.env` uses `DB_HOST=localhost`, `REDIS_HOST=localhost`, `S3_ENDPOINT=http://localhost:9000`, and `WEB_APP_URL=http://localhost:3000`. Set `REVALIDATE_SECRET` in both root `.env` and `apps/web/.env.local` if you want revalidation while developing on the host.
+
+## Assignment requirements ↔ implementation
+
+The table below maps the **Unicorn Software Solutions / Krontech** assignment (`Unicorn Software Solutions Assignment.pdf`) to what ships in this repo. Deeper rationale lives in `docs/` and [`REVIEW.md`](REVIEW.md).
+
+| Assignment theme | Expectation (summary) | Where it is implemented |
+|---|---|---|
+| **Design & CMS** | Preserve visual design; all content manageable | Screenshots under `specs/`; composable blocks and page types — [`docs/content-model.md`](docs/content-model.md), [`docs/frontend-decisions.md`](docs/frontend-decisions.md) |
+| **Technology** | Next.js + TypeScript; backend choice justified | This README + [`docs/decisions.md`](docs/decisions.md); Spring Boot modular monolith in `apps/api` |
+| **Data & infra** | PostgreSQL, Redis, S3-compatible, Docker Compose | `docker-compose.yml`, [`docs/architecture.md`](docs/architecture.md) |
+| **Public pages** | Home, product, blog list/detail, resources, contact/demo form | Locale routes under `apps/web/src/app/[locale]/` (see Public routes below) |
+| **Frontend** | SSR/ISR, `/tr` / `/en`, SEO + GEO-oriented output, responsive, a11y, performance | ISR TTLs and middleware — [`docs/caching-strategy.md`](docs/caching-strategy.md), [`docs/seo-geo.md`](docs/seo-geo.md); middleware `apps/web/src/middleware.ts` |
+| **Admin** | Pages + blocks, blog & products, media library, SEO fields, publishing | `/admin/**` in `apps/web`; REST under `/api/v1/admin/**` — [`docs/api-overview.md`](docs/api-overview.md) |
+| **SEO** | Meta, canonical, robots, OG, sitemap, `hreflang`, redirects | Centralized metadata helpers, `sitemap.xml`, `robots.txt`, redirect admin — [`docs/seo-migration.md`](docs/seo-migration.md) |
+| **GEO** | Structured data, semantic HTML, clear content blocks | JSON-LD helpers (`apps/web/src/lib/schema.ts`), block model — [`docs/seo-geo.md`](docs/seo-geo.md) |
+| **Cache & performance** | ISR, Redis, invalidation on publish | [`docs/caching-strategy.md`](docs/caching-strategy.md); `CacheService` + `/api/revalidate` |
+| **Forms & leads** | Validation, spam protection, consent (KVKK-style), admin visibility, export/webhook | Honeypot + rate limit + consent — [`docs/forms.md`](docs/forms.md); CSV export in admin UI; optional `FORM_WEBHOOK_URL` |
+| **Publishing** | Draft / publish / schedule, preview link, audit | [`docs/publishing-flow.md`](docs/publishing-flow.md); preview token; `GET /api/v1/admin/audit` |
+| **Auth** | Admin vs editor, JWT | Spring Security + JWT — [`docs/api-overview.md`](docs/api-overview.md); roles reflected in admin UI |
+| **API** | REST or GraphQL + docs + rate limiting | REST + OpenAPI/Swagger; global and form-specific limits — [`docs/api-overview.md`](docs/api-overview.md) |
+| **Tests** | Unit / integration coverage for critical paths | `cd apps/api && mvn test` — JUnit; frontend verified via `npm run build` |
+| **Deliverables** | Runnable repo, README, `.env.example`, meaningful Git history | This file, `.env.example`, Compose |
+
+**AI usage (assignment):** Development leaned on AI-assisted tooling for iteration; architectural choices and tradeoffs are documented in-repo (especially `docs/decisions.md` and `docs/frontend-decisions.md`) rather than treating generated output as final without review.
+
+**Scope notes:** *Form definition* in the brief is met as **fixed form types** (contact, demo request) with server-side validation and admin listing/export — not a generic form-builder UI. *Basic versioning* is addressed through **publish states**, preview tokens, and the **audit log**, not a full revision history per content record.
 
 ## Admin CMS
 
@@ -122,7 +168,7 @@ All write operations are gated by the backend JWT. The client-side route guard i
 | `/admin/products` | Products |
 | `/admin/resources` | Resources (whitepapers, datasheets) |
 | `/admin/media` | Media library — upload and manage assets |
-| `/admin/forms` | Form submissions (read-only) |
+| `/admin/forms` | Form submissions (read-only) + CSV export |
 | `/admin/redirects` | URL redirect rules — 301/302 management |
 | `/admin/users` | User management (ADMIN role only) |
 
@@ -132,7 +178,7 @@ In any content edit form, click **Get Preview Link** to rotate the preview token
 
 ### Local development — frontend ↔ API
 
-All admin browser requests go from `http://localhost:3000` to `http://localhost:8080`. CORS is configured via `CORS_ALLOWED_ORIGINS` in `.env` (default: `http://localhost:3000`). The defaults work out of the box.
+All admin browser requests go from the dev server origin to the API (default `http://localhost:8080`). CORS is configured via `CORS_ALLOWED_ORIGINS` in `.env`.
 
 If you run the frontend on a different port:
 
@@ -146,7 +192,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3001
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
 ```
 
-## Bootstrap Credentials
+## Bootstrap credentials
 
 | Role | Email | Password |
 |---|---|---|
@@ -155,7 +201,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
 
 Auto-created on first startup. Change or remove these in production.
 
-## Public Routes
+## Public routes
 
 | Path | Description |
 |---|---|
@@ -166,17 +212,17 @@ Auto-created on first startup. Change or remove these in production.
 | `/[locale]/resources` | Resources and datasheets |
 | `/[locale]/contact` | Contact / demo request form |
 
-## Running Tests
+## Running tests
 
 ```bash
-# Backend unit + integration tests
+# Backend unit + integration tests (JUnit)
 cd apps/api && mvn test
 
 # Frontend type check + build validation
 cd apps/web && npm run build
 ```
 
-## Technical Documentation
+## Technical documentation
 
 | Doc | Contents |
 |---|---|
@@ -186,4 +232,7 @@ cd apps/web && npm run build
 | `docs/caching-strategy.md` | ISR TTLs, Redis caches, on-demand revalidation |
 | `docs/publishing-flow.md` | Draft → Scheduled → Published transitions |
 | `docs/seo-migration.md` | Redirect strategy, canonical URL management |
+| `docs/seo-geo.md` | SEO + GEO-oriented content and markup |
+| `docs/forms.md` | Forms, validation, anti-spam, export, webhook |
+| `docs/decisions.md` | Major technical tradeoffs |
 | `docs/frontend-decisions.md` | Component inventory, visual interpretation decisions |

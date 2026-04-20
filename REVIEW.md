@@ -5,11 +5,22 @@ It covers what to run, what to look at, the strongest architectural arguments, a
 
 ---
 
-## 1. Start the project in 4 commands
+## 1. Start the project
+
+**Option A — full stack in Docker (simplest for a demo)**
 
 ```bash
-cp .env.example .env                    # defaults work out of the box
-docker compose up -d                    # Postgres, Redis, MinIO, MinIO bucket init
+cp .env.example .env
+docker compose up -d --build            # Postgres, Redis, MinIO, API, web
+```
+
+Site: `http://localhost:3000` · API: `http://localhost:8080` · Swagger: `http://localhost:8080/swagger-ui`
+
+**Option B — hot reload on the host**
+
+```bash
+cp .env.example .env
+docker compose up -d postgres redis minio minio-init
 
 # Terminal 1 — backend
 cd apps/api && mvn spring-boot:run      # API at http://localhost:8080
@@ -178,7 +189,7 @@ Frontend: no unit tests. Public pages are Server Components with no interactive 
 
 | Area | Status |
 |---|---|
-| **Database migrations** | `ddl-auto: update` in dev. Flyway is the right production path — not yet added. |
+| **Database migrations** | Schema is Flyway-owned (`ddl-auto: validate`). Reset local DB if you have an old schema: `docker compose down -v` or recreate `public` schema. |
 | **Image optimization** | `<img>` tags used instead of `next/image` because `MediaAsset` does not consistently store `width`/`height`. `next.config.ts` has `remotePatterns` configured; migration to `<Image>` requires only component changes. |
 | **CDN layer** | Not in the current stack. When added, `Cache-Control: s-maxage=...` headers should be set on public routes and CDN cache purge wired to publish events. |
 | **Multi-instance publishing scheduler** | `@Scheduled` on a single node. Add a distributed lock (Redisson) if multiple API instances are deployed. |
