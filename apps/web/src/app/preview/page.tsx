@@ -13,10 +13,9 @@ import {
 } from "@/lib/api/public-content";
 import { normalizeBlogHeroImageUrl } from "@/lib/blog-hero-image";
 import { normalizeDetailTabs } from "@/lib/product-detail-tabs";
+import { getApiBaseUrl } from "@/lib/api/base-url";
 import { isValidLocale } from "@/lib/i18n";
 import type { Locale, ProductDetailTabSection, ProductResourcesIntro, PublicResourceItem } from "@/types/content";
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1").replace(/\/$/, "");
 
 interface BlockItem {
   blockType: string;
@@ -193,7 +192,7 @@ function previewLocale(page: PreviewPage): Locale {
 }
 
 async function fetchPreview(token: string): Promise<PreviewPage> {
-  const res = await fetch(`${API_BASE}/preview?token=${encodeURIComponent(token)}`, { cache: "no-store" });
+  const res = await fetch(`${getApiBaseUrl()}/preview?token=${encodeURIComponent(token)}`, { cache: "no-store" });
   if (!res.ok) {
     const msg = await res.text().catch(() => `HTTP ${res.status}`);
     throw new Error(msg || `HTTP ${res.status}`);

@@ -295,9 +295,15 @@ export default function MediaUploadPage() {
             >
               <strong>Storage:</strong> Files are uploaded to MinIO (
               <code style={{ fontFamily: "monospace" }}>
-                {process.env.NEXT_PUBLIC_API_BASE_URL
-                  ? new URL(process.env.NEXT_PUBLIC_API_BASE_URL).origin
-                  : "http://localhost:8080"}
+                {(() => {
+                  try {
+                    return new URL(
+                      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1",
+                    ).origin;
+                  } catch {
+                    return "http://localhost:8080";
+                  }
+                })()}
               </code>
               ). The object key is automatically assigned. After upload, copy the
               returned object key into any content field that references media.

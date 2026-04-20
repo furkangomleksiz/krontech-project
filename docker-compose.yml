@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -67,6 +65,81 @@ services:
         exit 0
       "
     restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: krontech-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      # Always 8080 inside the container; map the host side with API_PORT below.
+      API_PORT: "8080"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-krontech}
+      DB_USER: ${DB_USER:-krontech}
+      DB_PASSWORD: ${DB_PASSWORD:-krontech}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: http://minio:9000
+      # Browser-visible MinIO URLs (API port 9000 is published on the host).
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minio}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minio123}
+      S3_BUCKET: ${S3_BUCKET:-media}
+      S3_FORCE_PATH_STYLE: "true"
+      JWT_SECRET: ${JWT_SECRET:-replace_with_a_long_random_secret}
+      JWT_ISSUER: ${JWT_ISSUER:-krontech-api}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      # Backend → Next.js on-demand revalidation (same Docker network).
+      WEB_APP_URL: http://web:3000
+      # Non-empty default so publish/unpublish purges Next ISR without a local .env file.
+      # Override REVALIDATE_SECRET in production (must match the web service).
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-local-compose-revalidate-secret}
+      MAX_UPLOAD_FILE_SIZE: ${MAX_UPLOAD_FILE_SIZE:-20MB}
+      MAX_UPLOAD_REQUEST_SIZE: ${MAX_UPLOAD_REQUEST_SIZE:-22MB}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api-docs || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 90s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-tr}
+        NEXT_PUBLIC_SUPPORTED_LOCALES: ${NEXT_PUBLIC_SUPPORTED_LOCALES:-tr,en}
+        # Host browser → API (published port). Override if API_HOST_PORT differs from 8080.
+        NEXT_PUBLIC_API_BASE_URL: ${DOCKER_NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api/v1}
+        API_INTERNAL_BASE_URL: ${API_INTERNAL_BASE_URL:-http://api:8080/api/v1}
+    container_name: krontech-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-local-compose-revalidate-secret}
+      # Runtime override for server/middleware (defaults match Dockerfile).
+      API_INTERNAL_BASE_URL: ${API_INTERNAL_BASE_URL:-http://api:8080/api/v1}
 
 volumes:
   postgres_data:

@@ -7,6 +7,8 @@ interface PageHeroProps {
   eyebrow?: string;
   /** Full-bleed photo behind the navy overlay (e.g. product hero from CMS). */
   backgroundImageUrl?: string;
+  /** CSS `background-position` when `backgroundImageUrl` is set (e.g. `center right` for wide banners). */
+  backgroundPosition?: string;
   /**
    * With `backgroundImageUrl`:
    * - `overlay` — heading sits on the image with a neutral (non-blue) scrim for contrast.
@@ -32,6 +34,7 @@ export function PageHero({
   subtitle,
   eyebrow,
   backgroundImageUrl,
+  backgroundPosition = "center",
   photoLayout = "overlay",
   variant = "dark",
   ctaPrimary,
@@ -42,12 +45,18 @@ export function PageHero({
 }: PageHeroProps) {
   const isLight = variant === "light" && !backgroundImageUrl;
   const useStack = Boolean(backgroundImageUrl && photoLayout === "stack");
+  const lastCrumb = breadcrumbs?.length ? breadcrumbs[breadcrumbs.length - 1] : undefined;
+  const heroAriaLabel = title.trim()
+    ? `${title} hero`
+    : lastCrumb?.label
+      ? `${lastCrumb.label} hero`
+      : "Page hero";
 
   if (useStack && backgroundImageUrl) {
     return (
       <section
         className={`page-hero page-hero--stack${centered ? " page-hero--centered" : ""}`}
-        aria-label={`${title} hero`}
+        aria-label={heroAriaLabel}
       >
         <div
           className="page-hero__banner-strip"
@@ -55,7 +64,7 @@ export function PageHero({
           style={{
             backgroundImage: `url(${backgroundImageUrl})`,
             backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundPosition,
           }}
         />
         <div className="page-hero__inner page-hero__inner--stack">
@@ -106,13 +115,13 @@ export function PageHero({
   return (
     <section
       className={`page-hero${centered ? " page-hero--centered" : ""}${backgroundImageUrl ? " page-hero--with-photo" : ""}${isLight ? " page-hero--light" : ""}`}
-      aria-label={`${title} hero`}
+      aria-label={heroAriaLabel}
       style={
         backgroundImageUrl
           ? {
               backgroundImage: `${PHOTO_OVERLAY_SCRIM}, url(${backgroundImageUrl})`,
               backgroundSize: "cover",
-              backgroundPosition: "center",
+              backgroundPosition,
             }
           : undefined
       }

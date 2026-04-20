@@ -6,9 +6,7 @@
  * so bypassing this client-side auth check only exposes empty/forbidden responses.
  */
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1"
-).replace(/\/$/, "");
+import { getApiBaseUrl } from "./base-url";
 
 // ── Error type ────────────────────────────────────────────────────────────────
 
@@ -84,7 +82,7 @@ async function adminFetch<T>(
   const token = shouldAttachAuthHeader(path, method) ? getStoredToken() : null;
   const sentAuthorization = Boolean(token);
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
     ...options,
     // Avoid stale admin reads (e.g. audit log after save) when the URL is unchanged.
     cache: "no-store",
@@ -610,7 +608,7 @@ export function uploadMedia(file: File, altText?: string): Promise<MediaAdminIte
   formData.append("file", file);
   if (altText?.trim()) formData.append("altText", altText.trim());
 
-  return fetch(`${API_BASE}/admin/media/upload`, {
+  return fetch(`${getApiBaseUrl()}/admin/media/upload`, {
     method: "POST",
     // Only add Authorization — no Content-Type, the browser sets it with the boundary.
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -713,7 +711,7 @@ export async function downloadFormSubmissionsCsv(formType?: string): Promise<voi
   const query = q.toString();
   const path = `/admin/forms/export.csv${query ? `?${query}` : ""}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 

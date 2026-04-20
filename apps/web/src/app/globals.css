@@ -1013,6 +1013,9 @@ button { font: inherit; cursor: pointer; }
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
 }
+.feature-row--text-only {
+  grid-template-columns: 1fr;
+}
 .feature-row--reverse { }
 .feature-row--reverse .feature-row__text { order: 2; }
 .feature-row--reverse .feature-row__media { order: 1; }

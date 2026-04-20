@@ -93,6 +93,9 @@ public class ResourceAdminService {
     public ResourceAdminResponse update(UUID id, ResourceAdminRequest request) {
         validateFileOrUrl(request);
         ResourceItem item = findOrThrow(id);
+        LocaleCode localeCode = LocaleCode.valueOf(request.locale().toUpperCase());
+        item.setSlug(request.slug());
+        item.setLocale(localeCode);
         item.setTitle(request.title());
         item.setSummary(request.summary());
         item.setHeroImageKey(request.heroImageKey());

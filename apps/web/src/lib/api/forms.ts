@@ -5,7 +5,15 @@
  * request shape, and error handling are defined exactly once.
  */
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(/\/$/, "");
+import { getApiBaseUrl } from "./base-url";
+
+function resolveApiOrigin(): string {
+  const explicit = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (explicit) return explicit;
+  const base = getApiBaseUrl();
+  const origin = base.replace(/\/api\/v1\/?$/i, "").replace(/\/$/, "");
+  return origin || "http://localhost:8080";
+}
 
 export interface FormPayload {
   formType: "CONTACT" | "DEMO_REQUEST";
@@ -47,7 +55,7 @@ export type FormResult = FormSuccessResult | FormErrorResult;
 
 export async function submitForm(payload: FormPayload): Promise<FormResult> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/forms/submit`, {
+    const res = await fetch(`${resolveApiOrigin()}/api/v1/forms/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

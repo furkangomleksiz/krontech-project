@@ -274,6 +274,7 @@ export const mockOffices: OfficeLocation[] = [
     phone: "+90 (212) 266 11 22",
     fax: "+90 (212) 266 12 44",
     address: "17-3 Anadolu Kurumları, YG Binası, K:3 Ofis, No:B401 Maslak-Sariyer, Istanbul",
+    imageUrl: "/contact-istanbul.jpg",
     reverse: false,
   },
   {
@@ -282,6 +283,7 @@ export const mockOffices: OfficeLocation[] = [
     email: "info_us@krontech.com",
     phone: "+1-201-204-0008",
     address: "2 Cid Street, Suite 201, Jersey City, NJ 07302, USA",
+    imageUrl: "/contact-usa.jpg",
     reverse: true,
   },
   {
@@ -291,6 +293,7 @@ export const mockOffices: OfficeLocation[] = [
     phone: "+90 (312) 284 09 89",
     fax: "+90 (312) 285 08 87",
     address: "Bilkent CyberPark, 2 Ofis No:207 Bilkent, Ankara, 15864",
+    imageUrl: "/contact-ankara.jpg",
     reverse: false,
   },
   {
@@ -299,6 +302,7 @@ export const mockOffices: OfficeLocation[] = [
     email: "info@krontech.com",
     phone: "+90 (232) 464 11 07",
     address: "Akdeniz Mh. Menderes No:2 Konak, İzmir",
+    imageUrl: "/contact-izmir.jpg",
     reverse: true,
   },
 ];

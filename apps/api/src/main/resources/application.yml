@@ -21,7 +21,7 @@ spring:
     password: ${DB_PASSWORD:krontech}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     # Do not log SQL to stdout (noisy; not typical in production). Use a dev profile or
     # temporary logging.level overrides when you need to trace queries.
     show-sql: false
@@ -30,8 +30,8 @@ spring:
         format_sql: false
     open-in-view: false
   flyway:
-    # Existing dev DBs already have tables but no flyway_schema_history; baseline then apply migrations.
-    baseline-on-migrate: true
+    # Schema is fully owned by Flyway (V1+). Set true only if attaching to a non-empty DB without history.
+    baseline-on-migrate: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}

@@ -66,8 +66,8 @@ export function OfficeCard({ office }: OfficeCardProps) {
           </div>
         </dl>
       </div>
-      <div className="office-row__image" aria-hidden="true">
-        {office.imageUrl && <img src={office.imageUrl} alt={office.name} loading="lazy" />}
+      <div className="office-row__image" aria-hidden={office.imageUrl ? undefined : true}>
+        {office.imageUrl && <img src={office.imageUrl} alt="" loading="lazy" />}
       </div>
     </article>
   );

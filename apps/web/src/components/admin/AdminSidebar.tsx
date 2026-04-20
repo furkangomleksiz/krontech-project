@@ -78,7 +78,9 @@ export function AdminSidebar({ role }: Props) {
     <aside className="admin-sidebar">
       {/* Logo */}
       <div className="admin-sidebar-logo">
-        <div className="admin-sidebar-logo-mark">K</div>
+        <div className="admin-sidebar-logo-mark">
+          <img src="/favicon.png" alt="" width={28} height={28} decoding="async" />
+        </div>
         <div>
           <div className="admin-sidebar-logo-text">Kron Admin</div>
           <div className="admin-sidebar-logo-sub">Content Management</div>

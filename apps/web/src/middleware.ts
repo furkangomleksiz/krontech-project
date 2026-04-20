@@ -34,6 +34,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getApiBaseUrl } from "@/lib/api/base-url";
 import { getDefaultLocale, isValidLocale } from "@/lib/i18n";
 
 /** Same-origin target: absolute path on this host. Off-site: full http(s) URL. */
@@ -67,7 +68,7 @@ async function getRedirectRules(): Promise<RedirectRule[]> {
   const now = Date.now();
   if (cacheExpiresAt > now) return cachedRules;
 
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const apiBase = getApiBaseUrl();
   if (!apiBase) return cachedRules;
 
   try {

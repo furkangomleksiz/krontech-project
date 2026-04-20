@@ -41,6 +41,9 @@ export default async function ContactPage({ params }: ContactPageProps) {
       <PageHero
         title=""
         subtitle=""
+        photoLayout="stack"
+        backgroundImageUrl="/contact-banner.jpg"
+        backgroundPosition="center right"
         breadcrumbs={[
           { label: "Home", href: `/${l}` },
           { label: "Contact" },

@@ -189,11 +189,11 @@ public class PublicContentService {
     }
 
     private PublicPageResponse mapToPageResponse(Page page) {
-        List<ContentBlockResponse> blocks = contentBlockRepository
-                .findByPageOrderBySortOrderAsc(page)
-                .stream()
-                .map(this::mapBlock)
-                .toList();
+        List<ContentBlockResponse> blocks = page.getId() == null
+                ? List.of()
+                : contentBlockRepository.findByPageOrderBySortOrderAsc(page).stream()
+                        .map(this::mapBlock)
+                        .toList();
 
         String heroImageUrl = page.getHeroImageKey() != null
                 ? objectStorageClient.buildPublicUrl(page.getHeroImageKey())
