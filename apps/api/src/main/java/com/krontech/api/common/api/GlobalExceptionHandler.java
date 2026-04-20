@@ -8,7 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -49,6 +51,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiError> handleUnauthorized(BadCredentialsException ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.UNAUTHORIZED, "Invalid credentials", request.getRequestURI());
+    }
+
+    /**
+     * Spring Security 6.2+ method security throws {@link AuthorizationDeniedException} when
+     * {@code @PreAuthorize} fails; without this handler it reaches {@link #handleUnexpected}
+     * and becomes HTTP 500.
+     */
+    @ExceptionHandler({AuthorizationDeniedException.class, AccessDeniedException.class})
+    public ResponseEntity<ApiError> handleForbidden(Exception ex, HttpServletRequest request) {
+        log.debug("forbidden path={}: {}", request.getRequestURI(), ex.getMessage());
+        return errorResponse(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

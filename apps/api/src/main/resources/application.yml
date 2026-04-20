@@ -1,6 +1,11 @@
 server:
   port: ${API_PORT:8080}
 
+logging:
+  level:
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn
+
 spring:
   application:
     name: krontech-api
@@ -17,9 +22,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    # Do not log SQL to stdout (noisy; not typical in production). Use a dev profile or
+    # temporary logging.level overrides when you need to trace queries.
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
     open-in-view: false
   flyway:
     # Existing dev DBs already have tables but no flyway_schema_history; baseline then apply migrations.

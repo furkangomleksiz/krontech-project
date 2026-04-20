@@ -40,6 +40,30 @@ export function clearCredentials(): void {
   localStorage.removeItem("krontech_admin_email");
 }
 
+/** True when the request should not send a stored JWT (e.g. login with a stale token in storage). */
+function shouldAttachAuthHeader(path: string, method: string): boolean {
+  return !(path === "/auth/login" && method === "POST");
+}
+
+/**
+ * Invalid or expired sessions use HTTP 401 after {@code SecurityConfig} disables anonymous auth.
+ * Clears stored credentials and sends the browser to the login page (unless already there).
+ */
+function forceAdminReLoginIfUnauthorized(
+  status: number,
+  path: string,
+  method: string,
+  sentAuthorization: boolean,
+): void {
+  if (status !== 401 || !sentAuthorization) return;
+  if (path === "/auth/login" && method === "POST") return;
+  if (typeof window === "undefined") return;
+  clearCredentials();
+  if (!window.location.pathname.startsWith("/admin/login")) {
+    window.location.replace("/admin/login");
+  }
+}
+
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("krontech_admin_token");
@@ -56,7 +80,9 @@ async function adminFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = getStoredToken();
+  const method = (options.method ?? "GET").toUpperCase();
+  const token = shouldAttachAuthHeader(path, method) ? getStoredToken() : null;
+  const sentAuthorization = Boolean(token);
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -80,6 +106,7 @@ async function adminFetch<T>(
     } catch {
       // ignore parse error
     }
+    forceAdminReLoginIfUnauthorized(res.status, path, method, sentAuthorization);
     throw new AdminApiError(res.status, message);
   }
 
@@ -562,6 +589,7 @@ export function uploadMedia(file: File, altText?: string): Promise<MediaAdminIte
         const body = await res.json();
         if (body?.message) message = body.message;
       } catch { /* ignore */ }
+      forceAdminReLoginIfUnauthorized(res.status, "/admin/media/upload", "POST", Boolean(token));
       throw new AdminApiError(res.status, message);
     }
     return res.json() as Promise<MediaAdminItem>;
@@ -665,6 +693,7 @@ export async function downloadFormSubmissionsCsv(formType?: string): Promise<voi
     } catch {
       if (text) message = text.slice(0, 200);
     }
+    forceAdminReLoginIfUnauthorized(res.status, path, "GET", Boolean(token));
     throw new AdminApiError(res.status, message);
   }
 
@@ -689,16 +718,36 @@ export async function downloadFormSubmissionsCsv(formType?: string): Promise<voi
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
-export function listUsers(params?: {
+/**
+ * Lists users. The API currently returns a JSON array; if it is later switched to a Spring
+ * {@code Page} object, both shapes are accepted here so callers always get {@link PagedResponse}.
+ */
+export async function listUsers(params?: {
   page?: number;
   size?: number;
 }): Promise<PagedResponse<UserAdminItem>> {
   const q = new URLSearchParams();
   if (params?.page !== undefined) q.set("page", String(params.page));
   if (params?.size !== undefined) q.set("size", String(params.size));
-  return adminFetch<PagedResponse<UserAdminItem>>(
-    `/admin/users?${q.toString()}`,
-  );
+  const raw = await adminFetch<unknown>(`/admin/users?${q.toString()}`);
+  if (Array.isArray(raw)) {
+    const content = raw as UserAdminItem[];
+    return {
+      content,
+      totalElements: content.length,
+      totalPages: 1,
+      number: 0,
+      size: content.length,
+    };
+  }
+  const paged = raw as PagedResponse<UserAdminItem>;
+  return {
+    content: paged.content ?? [],
+    totalElements: paged.totalElements ?? 0,
+    totalPages: paged.totalPages ?? 0,
+    number: paged.number ?? 0,
+    size: paged.size ?? 0,
+  };
 }
 
 export function createUser(body: {

@@ -28,7 +28,12 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     heading: "Assets & Data",
     items: [
       { label: "Media Library", href: "/admin/media", icon: "🖼️" },
-      { label: "Form Submissions", href: "/admin/forms", icon: "📬" },
+      {
+        label: "Form Submissions",
+        href: "/admin/forms",
+        icon: "📬",
+        adminOnly: true,
+      },
     ],
   },
   {

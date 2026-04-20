@@ -12,7 +12,11 @@
  *     A 301/302 response is issued for matching paths before any page rendering occurs,
  *     ensuring search engines receive the correct redirect at the Edge.
  *
- *  3. Locale header   — sets the x-locale response header so the root layout can
+ *  3. Default locale  — paths without a leading locale segment (e.g. /blog,
+ *     /products/foo) redirect to /{defaultLocale}/… so they resolve to the same
+ *     pages as /tr/blog (301). Skips /admin, /preview, /.well-known, etc.
+ *
+ *  4. Locale header   — sets the x-locale response header so the root layout can
  *     emit the correct <html lang="...">.
  *
  * Redirect rule cache:
@@ -30,6 +34,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getDefaultLocale, isValidLocale } from "@/lib/i18n";
 
 /** Same-origin target: absolute path on this host. Off-site: full http(s) URL. */
 function resolveRedirectTarget(request: NextRequest, targetPath: string): string {
@@ -89,6 +94,21 @@ const SKIP_REDIRECT_PREFIXES = [
   "/preview",  // Preview page — token-gated, should not be accidentally redirected
 ];
 
+/** Paths that must not get an automatic /{defaultLocale}/ prefix (same bases as redirect skips + well-known). */
+const SKIP_DEFAULT_LOCALE_PREFIXES = [
+  ...SKIP_REDIRECT_PREFIXES,
+  "/.well-known",
+];
+
+function shouldPrependDefaultLocale(pathname: string): boolean {
+  const first = pathname.split("/").filter(Boolean)[0];
+  if (!first) return false;
+  if (isValidLocale(first)) return false;
+  return !SKIP_DEFAULT_LOCALE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 // ── Middleware entry point ────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
@@ -97,7 +117,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // 1. Root → default locale (permanent, unconditional)
   if (pathname === "/" || pathname === "") {
     return NextResponse.redirect(
-      new URL("/tr", request.url),
+      new URL(`/${getDefaultLocale()}`, request.url),
       { status: 301 },
     );
   }
@@ -117,8 +137,16 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 3. Locale header — used by root layout to set <html lang="...">
-  const locale = pathname.startsWith("/tr") ? "tr" : "en";
+  // 3. Missing locale prefix → canonical default locale (e.g. /blog → /tr/blog)
+  if (shouldPrependDefaultLocale(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${getDefaultLocale()}${pathname}`;
+    return NextResponse.redirect(url, { status: 301 });
+  }
+
+  // 4. Locale header — used by root layout to set <html lang="...">
+  const firstSegment = pathname.split("/").filter(Boolean)[0];
+  const locale = isValidLocale(firstSegment) ? firstSegment : getDefaultLocale();
   const response = NextResponse.next();
   response.headers.set("x-locale", locale);
   return response;

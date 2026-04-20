@@ -31,6 +31,9 @@ public class SecurityConfig {
                 // Delegate CORS pre-flight and header handling to WebConfig.addCorsMappings().
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
+                // Without this, a missing/invalid JWT leaves the anonymous principal in the context,
+                // so secured routes return 403 (access denied) instead of 401 (unauthenticated).
+                .anonymous(anonymous -> anonymous.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
