@@ -69,13 +69,14 @@ export function ProductDetailTabs({
   return (
     <>
       <nav className="product-tab-nav" aria-label="Product sections">
-        <div className="product-tab-nav__inner">
+        <div className="product-tab-nav__inner" role="tablist">
           {PRODUCT_DETAIL_TAB_NAV.map((tab) => (
             <button
               key={tab.id}
               type="button"
+              role="tab"
               className={`tab-item${tab.id === active ? " tab-item--active" : ""}`}
-              aria-current={tab.id === active ? "page" : undefined}
+              aria-selected={tab.id === active}
               onClick={() => setActive(tab.id)}
             >
               <span className="tab-item__icon" aria-hidden="true">

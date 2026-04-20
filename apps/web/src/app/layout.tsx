@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: { default: "Kron Technologies", template: "%s | Kron Technologies" },
   description: "Enterprise-grade privileged access management and cybersecurity solutions.",
   metadataBase: new URL(siteUrl),
-  icons: { icon: "/favicon.ico" },
+  icons: { icon: "/favicon.png" },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

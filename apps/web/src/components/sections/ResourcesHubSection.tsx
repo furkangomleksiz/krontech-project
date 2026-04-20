@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Locale } from "@/types/content";
 
@@ -46,16 +47,19 @@ export function ResourcesHubSection({ locale }: ResourcesHubSectionProps) {
   const cards = [
     {
       key: "case-studies",
+      imageSrc: "/case-studies-card-image.jpg",
       ...t.caseStudies,
       href: `/${locale}/resources/case-studies`,
     },
     {
       key: "datasheets",
+      imageSrc: "/datasheets-card-image.jpg",
       ...t.datasheets,
       href: `/${locale}/resources/datasheets`,
     },
     {
       key: "blog",
+      imageSrc: "/blog-card-image.jpg",
       ...t.blog,
       href: `/${locale}/blog`,
     },
@@ -67,7 +71,16 @@ export function ResourcesHubSection({ locale }: ResourcesHubSectionProps) {
         <div className="resources-hub__grid">
           {cards.map((card) => (
             <article key={card.key} className="resource-hub-card">
-              <div className="resource-hub-card__image" aria-hidden="true" />
+              <div className="resource-hub-card__image">
+                <Image
+                  src={card.imageSrc}
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="resource-hub-card__photo"
+                  priority={card.key === "case-studies"}
+                />
+              </div>
               <div className="resource-hub-card__body">
                 <h2 className="resource-hub-card__title">{card.title}</h2>
                 <p className="resource-hub-card__desc">{card.desc}</p>

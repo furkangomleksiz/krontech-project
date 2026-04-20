@@ -46,6 +46,8 @@ export default async function ResourcesPage({ params }: ResourcesPageProps) {
         title={title}
         subtitle={subtitle}
         centered
+        photoLayout="stack"
+        backgroundImageUrl="/resources-banner.jpg"
         breadcrumbs={[
           { label: "Home", href: `/${l}` },
           { label: resourcesLabel },

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import type { Locale } from "@/types/content";
@@ -20,9 +21,16 @@ export function SiteHeader({ locale }: SiteHeaderProps) {
     <header className="site-header">
       <div className="nav-shell">
         {/* Logo */}
-        <Link href={`/${locale}`} className="brand" aria-label="Kron home">
-          <span className="brand__icon" aria-hidden="true">K</span>
-          Kron
+        <Link href={`/${locale}`} className="brand" aria-label="Kron Technologies home">
+          <Image
+            src="/kron-banner-logo.png"
+            alt=""
+            width={256}
+            height={120}
+            className="brand__logo"
+            priority
+            sizes="(max-width: 640px) 160px, 200px"
+          />
         </Link>
 
         {/* Primary nav */}

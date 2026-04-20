@@ -59,7 +59,7 @@ export default async function BlogListPage({ params, searchParams }: BlogListPag
           { label: "Blog" },
         ])}
       />
-      <PageHero title="Blog" centered />
+      <PageHero title="Blog" centered backgroundImageUrl="/blog-banner.jpg" />
 
       <section className="section-pad bg-gray" aria-label="Blog posts">
         <div className="container">

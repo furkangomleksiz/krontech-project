@@ -49,6 +49,8 @@ export default async function ProductsPage({ params }: ProductsPageProps) {
         title={title}
         subtitle={subtitle}
         centered
+        photoLayout="stack"
+        backgroundImageUrl="/products-banner.jpg"
         breadcrumbs={[
           { label: "Home", href: `/${l}` },
           { label: l === "tr" ? "Ürünler" : "Products" },

@@ -7,6 +7,12 @@ interface PageHeroProps {
   eyebrow?: string;
   /** Full-bleed photo behind the navy overlay (e.g. product hero from CMS). */
   backgroundImageUrl?: string;
+  /**
+   * With `backgroundImageUrl`:
+   * - `overlay` — heading sits on the image with a neutral (non-blue) scrim for contrast.
+   * - `stack` — image-only strip, then breadcrumbs + heading on a white band (original Products/Resources layout).
+   */
+  photoLayout?: "overlay" | "stack";
   /** `light` = white background and dark text (e.g. resource document listings). */
   variant?: "dark" | "light";
   ctaPrimary?: { label: string; href: string };
@@ -17,11 +23,16 @@ interface PageHeroProps {
   breadcrumbs?: Array<{ label: string; href?: string }>;
 }
 
+/** Neutral bottom scrim so white type stays readable without a brand-blue wash. */
+const PHOTO_OVERLAY_SCRIM =
+  "linear-gradient(to top, rgba(8, 10, 14, 0.55) 0%, rgba(8, 10, 14, 0.12) 40%, transparent 70%)";
+
 export function PageHero({
   title,
   subtitle,
   eyebrow,
   backgroundImageUrl,
+  photoLayout = "overlay",
   variant = "dark",
   ctaPrimary,
   ctaSecondary,
@@ -30,6 +41,66 @@ export function PageHero({
   breadcrumbs,
 }: PageHeroProps) {
   const isLight = variant === "light" && !backgroundImageUrl;
+  const useStack = Boolean(backgroundImageUrl && photoLayout === "stack");
+
+  if (useStack && backgroundImageUrl) {
+    return (
+      <section
+        className={`page-hero page-hero--stack${centered ? " page-hero--centered" : ""}`}
+        aria-label={`${title} hero`}
+      >
+        <div
+          className="page-hero__banner-strip"
+          aria-hidden="true"
+          style={{
+            backgroundImage: `url(${backgroundImageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div className="page-hero__inner page-hero__inner--stack">
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <div className="page-hero__stack-breadcrumbs">
+              <Breadcrumb items={breadcrumbs} dark={false} />
+            </div>
+          )}
+          {eyebrow && <p className="page-hero__eyebrow">{eyebrow}</p>}
+          {title ? <h1 className="page-hero__title">{title}</h1> : null}
+          {subtitle ? <p className="page-hero__sub">{subtitle}</p> : null}
+          {(ctaPrimary || ctaSecondary) && (
+            <div
+              className="page-hero__actions"
+              {...(decorativeActions
+                ? { "aria-label": "Preview only — these buttons are not linked" }
+                : {})}
+            >
+              {ctaPrimary &&
+                (decorativeActions ? (
+                  <span className="btn btn-primary btn-lg" style={{ cursor: "default" }}>
+                    {ctaPrimary.label}
+                  </span>
+                ) : (
+                  <Link href={ctaPrimary.href} className="btn btn-primary btn-lg">
+                    {ctaPrimary.label}
+                  </Link>
+                ))}
+              {ctaSecondary &&
+                (decorativeActions ? (
+                  <span className="btn btn-outline btn-lg" style={{ cursor: "default" }}>
+                    {ctaSecondary.label}
+                  </span>
+                ) : (
+                  <Link href={ctaSecondary.href} className="btn btn-outline btn-lg">
+                    {ctaSecondary.label}
+                  </Link>
+                ))}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   const breadcrumbDark = Boolean(backgroundImageUrl) || !isLight;
 
   return (
@@ -39,7 +110,7 @@ export function PageHero({
       style={
         backgroundImageUrl
           ? {
-              backgroundImage: `linear-gradient(105deg, rgba(6, 18, 48, 0.94) 0%, rgba(6, 22, 58, 0.78) 42%, rgba(8, 28, 72, 0.55) 100%), url(${backgroundImageUrl})`,
+              backgroundImage: `${PHOTO_OVERLAY_SCRIM}, url(${backgroundImageUrl})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }
@@ -53,8 +124,8 @@ export function PageHero({
           </div>
         )}
         {eyebrow && <p className="page-hero__eyebrow">{eyebrow}</p>}
-        <h1 className="page-hero__title">{title}</h1>
-        {subtitle && <p className="page-hero__sub">{subtitle}</p>}
+        {title ? <h1 className="page-hero__title">{title}</h1> : null}
+        {subtitle ? <p className="page-hero__sub">{subtitle}</p> : null}
         {(ctaPrimary || ctaSecondary) && (
           <div
             className="page-hero__actions"

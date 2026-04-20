@@ -100,7 +100,12 @@ const SKIP_DEFAULT_LOCALE_PREFIXES = [
   "/.well-known",
 ];
 
+/** Single-segment paths like /kron-logo.jpg — public files, not app routes. */
+const ROOT_STATIC_FILE =
+  /^\/[^/]+\.(?:ico|png|jpe?g|svg|webp|gif|woff2?|txt|pdf|xml|js|mjs|map)$/i;
+
 function shouldPrependDefaultLocale(pathname: string): boolean {
+  if (ROOT_STATIC_FILE.test(pathname)) return false;
   const first = pathname.split("/").filter(Boolean)[0];
   if (!first) return false;
   if (isValidLocale(first)) return false;
@@ -157,6 +162,6 @@ export const config = {
     // Run on all routes except Next.js internals and static metadata files.
     // The API path (/api/) is served by Spring Boot, not Next.js, so it never
     // reaches this middleware — but exclude it explicitly for clarity.
-    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|api/).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|favicon\\.png|sitemap\\.xml|robots\\.txt|api/).*)",
   ],
 };
