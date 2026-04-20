@@ -4,6 +4,7 @@ import com.krontech.api.auth.security.JwtAuthenticationFilter;
 import com.krontech.api.infrastructure.ratelimit.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -48,6 +49,14 @@ public class SecurityConfig {
                         .permitAll()
                         .anyRequest()
                         .hasAnyRole("ADMIN", "EDITOR")
+                )
+                // Unauthenticated / failed authentication → 401. Authenticated but not allowed (roles) → 403.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.setStatus(HttpStatus.UNAUTHORIZED.value()))
+                        .accessDeniedHandler(
+                                (request, response, accessDeniedException) ->
+                                        response.setStatus(HttpStatus.FORBIDDEN.value()))
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class);

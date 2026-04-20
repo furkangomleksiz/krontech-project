@@ -1,0 +1,19 @@
+# Profile used by @ActiveProfiles("test") — API smoke / integration tests.
+# Infrastructure (JDBC, Redis) is provided by Testcontainers; values are set via @DynamicPropertySource.
+
+spring:
+  task:
+    scheduling:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+# Stable JWT key for tests (avoids short secrets if env overrides main application.yml in CI).
+app:
+  auth:
+    secret: "test_integration_jwt_secret_must_be_at_least_32_chars_long"
+    issuer: "krontech-api-test"
+    access-token-minutes: 1

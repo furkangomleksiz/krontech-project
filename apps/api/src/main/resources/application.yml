@@ -7,6 +7,11 @@ logging:
     org.hibernate.orm.jdbc.bind: warn
 
 spring:
+  # JWT + stateless security only — disable Spring Boot's default in-memory user (otherwise
+  # protected routes return 403 for the dev user instead of 401 when no Bearer token is sent).
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   application:
     name: krontech-api
   servlet:
