@@ -10,7 +10,7 @@ export function DatasheetCard({ datasheet, downloadLabel = "Download" }: Datashe
     <article className="datasheet-card">
       <div className="datasheet-card__cover" aria-hidden="true">
         {datasheet.coverImageUrl ? (
-          <img src={datasheet.coverImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={datasheet.coverImageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         ) : (
           <div className="datasheet-card__cover-inner">
             <div className="datasheet-card__logo">K</div>

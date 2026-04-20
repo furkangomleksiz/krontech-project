@@ -46,13 +46,13 @@ public class ProductService {
     }
 
     /**
-     * Published products for the public listing page, ordered by title.
+     * Published products for the public listing page, newest first by {@code publishedAt}.
      * Cached in Redis under the {@code product-list} cache (see {@code CacheConfig}).
      */
     @Cacheable(value = "product-list", key = "#locale")
     public List<ProductListItemResponse> listPublishedProducts(String locale) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
-        return productRepository.findAllByLocaleAndStatusOrderByTitleAsc(localeCode, PublishStatus.PUBLISHED).stream()
+        return productRepository.findAllByLocaleAndStatusOrderByPublishedAtDesc(localeCode, PublishStatus.PUBLISHED).stream()
                 .map(this::mapToListItem)
                 .toList();
     }

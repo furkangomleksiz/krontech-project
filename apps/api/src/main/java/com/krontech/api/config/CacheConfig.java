@@ -30,6 +30,7 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
  * <pre>
  *   pages         — generic page + content blocks    10 min
  *   blog-list     — blog post list (per locale)       10 min
+ *   blog-highlights — curated blog sidebar (per locale) 10 min
  *   blog-detail   — blog post detail                  20 min
  *   resource-list — resource listing (per locale)     10 min
  *   product-list  — published products (per locale)    10 min
@@ -104,6 +105,7 @@ public class CacheConfig implements CachingConfigurer {
         perCacheConfigs.put("resource-list", base.entryTtl(Duration.ofMinutes(10)));
         perCacheConfigs.put("product-list", base.entryTtl(Duration.ofMinutes(10)));
         perCacheConfigs.put("page-list", base.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfigs.put("blog-highlights", base.entryTtl(Duration.ofMinutes(10)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(base)

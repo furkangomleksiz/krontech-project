@@ -3,6 +3,7 @@ package com.krontech.api.pages.controller;
 import com.krontech.api.blog.dto.BlogCounterpartResponse;
 import com.krontech.api.blog.dto.BlogDetailResponse;
 import com.krontech.api.blog.dto.BlogListPublicResponse;
+import com.krontech.api.blog.dto.BlogPreviewResponse;
 import com.krontech.api.pages.dto.PublicPageListItemResponse;
 import com.krontech.api.pages.dto.PublicPageResponse;
 import com.krontech.api.pages.service.PublicContentService;
@@ -57,6 +58,14 @@ public class PublicContentController {
             @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size
     ) {
         return publicContentService.getBlogList(locale, page, size);
+    }
+
+    /** CMS-curated blog sidebar (published posts only, same order as configured). */
+    @GetMapping("/blog/highlights")
+    public List<BlogPreviewResponse> getBlogHighlights(
+            @RequestParam(defaultValue = "en") @Pattern(regexp = "^(tr|en)$") String locale
+    ) {
+        return publicContentService.getBlogHighlights(locale);
     }
 
     @GetMapping("/blog/{slug}")

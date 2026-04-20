@@ -323,6 +323,7 @@ button { font: inherit; cursor: pointer; }
 .breadcrumb a { color: var(--gray-400); }
 .breadcrumb a:hover { color: var(--blue); }
 .breadcrumb__sep { color: var(--gray-400); }
+.breadcrumb__ghost { color: var(--gray-400); font-weight: 400; }
 .breadcrumb__current { color: var(--gray-600); font-weight: 500; }
 
 .breadcrumb-dark .breadcrumb { color: rgba(255,255,255,.5); }
@@ -330,6 +331,7 @@ button { font: inherit; cursor: pointer; }
 .breadcrumb-dark .breadcrumb a:hover { color: var(--white); }
 .breadcrumb-dark .breadcrumb__sep { color: rgba(255,255,255,.3); }
 .breadcrumb-dark .breadcrumb__current { color: rgba(255,255,255,.8); }
+.breadcrumb-dark .breadcrumb__ghost { color: rgba(255,255,255,.5); }
 
 /* ─────────────────────────────────────────────────────────────
    Section Title
@@ -802,6 +804,9 @@ button { font: inherit; cursor: pointer; }
   gap: 40px;
   align-items: start;
 }
+.blog-layout.blog-layout--single {
+  grid-template-columns: 1fr;
+}
 .blog-list { display: flex; flex-direction: column; gap: 32px; }
 
 .blog-card {
@@ -887,6 +892,8 @@ button { font: inherit; cursor: pointer; }
 }
 .highlight-card:last-child { border-bottom: none; }
 .highlight-card:hover { opacity: .8; }
+.highlight-card--decorative { cursor: default; }
+.highlight-card--decorative:hover { opacity: 1; }
 
 .highlight-card__thumb {
   width: 72px;
@@ -1558,6 +1565,9 @@ a.page-btn { text-decoration: none; }
   gap: 48px;
   align-items: start;
 }
+.article-layout.article-layout--single {
+  grid-template-columns: 1fr;
+}
 .article-body { min-width: 0; }
 .article-body h1 {
   font-size: clamp(24px, 3vw, 32px);
@@ -1701,10 +1711,15 @@ a.page-btn { text-decoration: none; }
     linear-gradient(160deg, var(--navy-800) 0%, var(--navy-700) 50%, #0a3d8c 100%);
   overflow: hidden;
 }
+/* Neutral backing for generated PDF previews so letterboxing matches datasheet-style cards */
+.resource-doc-card__thumb:has(> img) {
+  background: var(--gray-100);
+}
 .resource-doc-card__thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
 }
 .resource-doc-card__body {

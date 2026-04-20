@@ -5,8 +5,7 @@ import { BlogListPagination } from "@/components/sections/BlogListPagination";
 import { HighlightsSidebar } from "@/components/sections/HighlightsSidebar";
 import { PageHero } from "@/components/sections/PageHero";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { getBlogList } from "@/lib/api/public-content";
-import { mockBlogHighlights } from "@/lib/api/mock-content";
+import { getBlogHighlights, getBlogList } from "@/lib/api/public-content";
 import { buildMetadata } from "@/lib/seo";
 import { breadcrumbSchema } from "@/lib/schema";
 import { isValidLocale } from "@/lib/i18n";
@@ -40,7 +39,10 @@ export default async function BlogListPage({ params, searchParams }: BlogListPag
   const l = locale as Locale;
   const sp = await searchParams;
   const userPage = parseUserBlogPage(sp?.page);
-  const { posts, totalPages } = await getBlogList(l, { page: userPage - 1 });
+  const [{ posts, totalPages }, highlights] = await Promise.all([
+    getBlogList(l, { page: userPage - 1 }),
+    getBlogHighlights(l),
+  ]);
 
   if (totalPages === 0 && userPage > 1) {
     redirect(`/${l}/blog`);
@@ -61,7 +63,9 @@ export default async function BlogListPage({ params, searchParams }: BlogListPag
 
       <section className="section-pad bg-gray" aria-label="Blog posts">
         <div className="container">
-          <div className="blog-layout">
+          <div
+            className={`blog-layout${highlights.length === 0 ? " blog-layout--single" : ""}`}
+          >
             {/* Main column */}
             <div>
               <ul className="blog-list" role="list">
@@ -76,7 +80,7 @@ export default async function BlogListPage({ params, searchParams }: BlogListPag
             </div>
 
             {/* Sidebar */}
-            <HighlightsSidebar posts={mockBlogHighlights} locale={l} />
+            <HighlightsSidebar posts={highlights} locale={l} />
           </div>
         </div>
       </section>

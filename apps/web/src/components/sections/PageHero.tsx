@@ -11,6 +11,8 @@ interface PageHeroProps {
   variant?: "dark" | "light";
   ctaPrimary?: { label: string; href: string };
   ctaSecondary?: { label: string; href: string };
+  /** When true, CTAs look like buttons but are not links (e.g. draft preview). */
+  decorativeActions?: boolean;
   centered?: boolean;
   breadcrumbs?: Array<{ label: string; href?: string }>;
 }
@@ -23,6 +25,7 @@ export function PageHero({
   variant = "dark",
   ctaPrimary,
   ctaSecondary,
+  decorativeActions,
   centered,
   breadcrumbs,
 }: PageHeroProps) {
@@ -53,17 +56,32 @@ export function PageHero({
         <h1 className="page-hero__title">{title}</h1>
         {subtitle && <p className="page-hero__sub">{subtitle}</p>}
         {(ctaPrimary || ctaSecondary) && (
-          <div className="page-hero__actions">
-            {ctaPrimary && (
-              <Link href={ctaPrimary.href} className="btn btn-primary btn-lg">
-                {ctaPrimary.label}
-              </Link>
-            )}
-            {ctaSecondary && (
-              <Link href={ctaSecondary.href} className="btn btn-outline btn-lg">
-                {ctaSecondary.label}
-              </Link>
-            )}
+          <div
+            className="page-hero__actions"
+            {...(decorativeActions
+              ? { "aria-label": "Preview only — these buttons are not linked" }
+              : {})}
+          >
+            {ctaPrimary &&
+              (decorativeActions ? (
+                <span className="btn btn-primary btn-lg" style={{ cursor: "default" }}>
+                  {ctaPrimary.label}
+                </span>
+              ) : (
+                <Link href={ctaPrimary.href} className="btn btn-primary btn-lg">
+                  {ctaPrimary.label}
+                </Link>
+              ))}
+            {ctaSecondary &&
+              (decorativeActions ? (
+                <span className="btn btn-outline btn-lg" style={{ cursor: "default" }}>
+                  {ctaSecondary.label}
+                </span>
+              ) : (
+                <Link href={ctaSecondary.href} className="btn btn-outline btn-lg">
+                  {ctaSecondary.label}
+                </Link>
+              ))}
           </div>
         )}
       </div>

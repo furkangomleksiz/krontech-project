@@ -22,7 +22,7 @@ import org.springframework.web.client.RestClient;
  * <h2>Two-layer eviction on every publish/unpublish</h2>
  * <ol>
  *   <li><strong>Redis (Spring Cache):</strong> Evicts the affected entries from the
- *       {@code pages}, {@code page-list}, {@code blog-list}, {@code blog-detail}, and {@code resource-list}
+ *       {@code pages}, {@code page-list}, {@code blog-list}, {@code blog-highlights}, {@code blog-detail}, and {@code resource-list}
  *       caches managed by {@link com.krontech.api.config.CacheConfig}.  The next API
  *       request will re-populate Redis from PostgreSQL.</li>
  *   <li><strong>Next.js ISR:</strong> Asynchronously calls
@@ -99,6 +99,7 @@ public class CacheService {
         // 1. Evict from Redis cache
         evictFromCache("pages",         slug + ":" + locale);
         evictFromCache("blog-list",     locale);
+        evictFromCache("blog-highlights", locale);
         evictFromCache("blog-detail",   slug + ":" + locale);
         evictFromCache("resource-list", locale);
         evictFromCache("product-list", locale);
@@ -125,6 +126,19 @@ public class CacheService {
      * Evicts public caches for every page row sharing a {@code contentGroupId} (locale variants).
      * Call after blog/product/page updates so linked translations and locale-switch targets stay fresh.
      */
+    /**
+     * Clears the curated blog sidebar cache and revalidates the blog index for the locale
+     * (layout revalidation is triggered from the Next.js route handler for that path).
+     */
+    public void evictBlogHighlights(String locale) {
+        evictFromCache("blog-highlights", locale);
+        CompletableFuture.runAsync(() -> revalidateFrontendPath("/" + locale + "/blog"))
+                .exceptionally(ex -> {
+                    log.warn("frontend_revalidation_thread_failed reason={}", ex.getMessage());
+                    return null;
+                });
+    }
+
     public void evictLinkedContentGroup(UUID contentGroupId) {
         if (contentGroupId == null) {
             return;

@@ -17,7 +17,7 @@ public interface ProductRepository extends JpaRepository<Product, java.util.UUID
     Optional<Product> findByContentGroupIdAndLocaleAndStatus(
             UUID contentGroupId, LocaleCode locale, PublishStatus status);
 
-    List<Product> findAllByLocaleAndStatusOrderByTitleAsc(LocaleCode locale, PublishStatus status);
+    List<Product> findAllByLocaleAndStatusOrderByPublishedAtDesc(LocaleCode locale, PublishStatus status);
 
     // Admin queries — paginated, all statuses
     Page<Product> findAllByLocale(LocaleCode locale, Pageable pageable);

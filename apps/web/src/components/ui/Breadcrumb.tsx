@@ -19,6 +19,8 @@ export function Breadcrumb({ items, dark }: BreadcrumbProps) {
             {i > 0 && <span className="breadcrumb__sep" aria-hidden="true">&gt;</span>}
             {item.href && i < items.length - 1 ? (
               <Link href={item.href}>{item.label}</Link>
+            ) : i < items.length - 1 ? (
+              <span className="breadcrumb__ghost">{item.label}</span>
             ) : (
               <span className="breadcrumb__current">{item.label}</span>
             )}

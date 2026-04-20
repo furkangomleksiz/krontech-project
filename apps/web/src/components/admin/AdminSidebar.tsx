@@ -20,6 +20,7 @@ const NAV_SECTIONS: Array<{ heading: string; items: NavItem[] }> = [
     items: [
       { label: "Pages", href: "/admin/pages", icon: "📄" },
       { label: "Blog Posts", href: "/admin/blog", icon: "✍️" },
+      { label: "Blog highlights", href: "/admin/blog/highlights", icon: "✨" },
       { label: "Products", href: "/admin/products", icon: "📦" },
       { label: "Resources", href: "/admin/resources", icon: "📁" },
     ],
@@ -65,6 +66,11 @@ export function AdminSidebar({ role }: Props) {
 
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin/blog/highlights") return pathname === "/admin/blog/highlights";
+    if (href === "/admin/blog") {
+      if (pathname === "/admin/blog/highlights") return false;
+      return pathname === "/admin/blog" || pathname.startsWith("/admin/blog/");
+    }
     return pathname.startsWith(href);
   }
 

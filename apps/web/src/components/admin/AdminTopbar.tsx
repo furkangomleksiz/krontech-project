@@ -6,6 +6,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/admin": "Dashboard",
   "/admin/pages": "Pages",
   "/admin/blog": "Blog Posts",
+  "/admin/blog/highlights": "Blog highlights",
   "/admin/products": "Products",
   "/admin/resources": "Resources",
   "/admin/media": "Media Library",
@@ -14,6 +15,9 @@ const ROUTE_LABELS: Record<string, string> = {
 };
 
 function resolveTitle(pathname: string): string {
+  if (pathname === "/admin/blog/highlights") {
+    return ROUTE_LABELS["/admin/blog/highlights"] ?? "Blog highlights";
+  }
   if (pathname.endsWith("/new")) {
     const base = pathname.replace(/\/new$/, "");
     const parent = ROUTE_LABELS[base];

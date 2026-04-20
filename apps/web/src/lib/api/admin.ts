@@ -458,6 +458,39 @@ export function deleteBlogPost(id: string): Promise<void> {
   return adminFetch<void>(`/admin/blog/${id}`, { method: "DELETE" });
 }
 
+export interface BlogHighlightAdminItem {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+}
+
+export interface BlogHighlightsAdminResponse {
+  locale: string;
+  posts: BlogHighlightAdminItem[];
+}
+
+export function getBlogHighlightsAdmin(
+  locale: string,
+): Promise<BlogHighlightsAdminResponse> {
+  return adminFetch<BlogHighlightsAdminResponse>(
+    `/admin/blog/highlights?locale=${encodeURIComponent(locale)}`,
+  );
+}
+
+export function updateBlogHighlightsAdmin(
+  locale: string,
+  postIds: string[],
+): Promise<BlogHighlightsAdminResponse> {
+  return adminFetch<BlogHighlightsAdminResponse>(
+    `/admin/blog/highlights?locale=${encodeURIComponent(locale)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ postIds }),
+    },
+  );
+}
+
 // ── Products ──────────────────────────────────────────────────────────────────
 
 export function listProducts(params?: {

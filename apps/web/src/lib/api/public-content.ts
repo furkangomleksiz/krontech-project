@@ -167,6 +167,28 @@ function normalizeBlogListResponse(
  * Published blog posts for a locale. Uses paginated API metadata when available.
  * Page indices are **zero-based** in `options.page` (same as the API query param).
  */
+/**
+ * Curated sidebar posts for the blog list and article pages (published only, max five).
+ * GET /api/v1/public/blog/highlights
+ */
+export async function getBlogHighlights(locale: Locale): Promise<BlogPostPreview[]> {
+  try {
+    const raw = await apiFetch<unknown>(`/public/blog/highlights?locale=${locale}`, {
+      revalidateSeconds: blogFetchRevalidateSeconds(BLOG_LIST_TTL),
+    });
+    if (!Array.isArray(raw)) return [];
+    return raw.map((row) => normalizeBlogPostPreview(row));
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[getBlogHighlights] API request failed — sidebar highlights will be empty.",
+        e,
+      );
+    }
+    return [];
+  }
+}
+
 export async function getBlogList(
   locale: Locale,
   options?: { page?: number; size?: number },

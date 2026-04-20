@@ -75,6 +75,9 @@ export default function BlogListPage() {
           </p>
         </div>
         <div className="admin-page-actions">
+          <Link href="/admin/blog/highlights" className="admin-btn admin-btn--secondary">
+            Sidebar highlights
+          </Link>
           <Link href="/admin/blog/new" className="admin-btn admin-btn--primary">
             + New Post
           </Link>

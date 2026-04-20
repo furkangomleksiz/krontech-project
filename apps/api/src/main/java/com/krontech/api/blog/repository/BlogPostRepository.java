@@ -29,4 +29,8 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, UUID> {
     Page<BlogPost> findAllByStatus(PublishStatus status, Pageable pageable);
 
     Page<BlogPost> findAllByLocaleAndStatus(LocaleCode locale, PublishStatus status, Pageable pageable);
+
+    /** Public listing — published only, newest {@code publishedAt} first. */
+    Page<BlogPost> findAllByLocaleAndStatusOrderByPublishedAtDesc(
+            LocaleCode locale, PublishStatus status, Pageable pageable);
 }

@@ -6,6 +6,7 @@ import com.krontech.api.blog.dto.BlogListPublicResponse;
 import com.krontech.api.blog.dto.BlogPreviewResponse;
 import com.krontech.api.blog.entity.BlogPost;
 import com.krontech.api.blog.repository.BlogPostRepository;
+import com.krontech.api.blog.service.BlogHighlightService;
 import com.krontech.api.components.dto.ContentBlockResponse;
 import com.krontech.api.components.entity.ContentBlock;
 import com.krontech.api.components.repository.ContentBlockRepository;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -35,6 +35,7 @@ public class PublicContentService {
 
     private final PageRepository pageRepository;
     private final BlogPostRepository blogPostRepository;
+    private final BlogHighlightService blogHighlightService;
     private final ContentBlockRepository contentBlockRepository;
     private final ProductRepository productRepository;
     private final ProductPublicContentAssembler productPublicContentAssembler;
@@ -43,6 +44,7 @@ public class PublicContentService {
     public PublicContentService(
             PageRepository pageRepository,
             BlogPostRepository blogPostRepository,
+            BlogHighlightService blogHighlightService,
             ContentBlockRepository contentBlockRepository,
             ProductRepository productRepository,
             ProductPublicContentAssembler productPublicContentAssembler,
@@ -50,6 +52,7 @@ public class PublicContentService {
     ) {
         this.pageRepository = pageRepository;
         this.blogPostRepository = blogPostRepository;
+        this.blogHighlightService = blogHighlightService;
         this.contentBlockRepository = contentBlockRepository;
         this.productRepository = productRepository;
         this.productPublicContentAssembler = productPublicContentAssembler;
@@ -113,10 +116,11 @@ public class PublicContentService {
     @Cacheable(value = "blog-list", key = "#locale", condition = "#page == 0")
     public BlogListPublicResponse getBlogList(String locale, int page, int size) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
-        var pageable = PageRequest.of(page, size, Sort.by("publishedAt").descending());
+        var pageable = PageRequest.of(page, size);
 
         org.springframework.data.domain.Page<BlogPost> result =
-                blogPostRepository.findAllByLocaleAndStatus(localeCode, PublishStatus.PUBLISHED, pageable);
+                blogPostRepository.findAllByLocaleAndStatusOrderByPublishedAtDesc(
+                        localeCode, PublishStatus.PUBLISHED, pageable);
 
         List<BlogPreviewResponse> content =
                 result.getContent().stream().map(this::mapToPreview).toList();
@@ -127,6 +131,16 @@ public class PublicContentService {
                 result.getSize(),
                 result.getTotalElements(),
                 result.getTotalPages());
+    }
+
+    /**
+     * Curated sidebar posts for the public blog list and detail pages (published only, max five).
+     * Cached in Redis under {@code blog-highlights} per locale; evicted with other blog caches.
+     */
+    @Cacheable(value = "blog-highlights", key = "#locale")
+    public List<BlogPreviewResponse> getBlogHighlights(String locale) {
+        LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
+        return blogHighlightService.getPublishedPreviews(localeCode);
     }
 
     /**

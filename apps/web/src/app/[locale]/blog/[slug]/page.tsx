@@ -5,8 +5,7 @@ import { HighlightsSidebar } from "@/components/sections/HighlightsSidebar";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { normalizeBlogHeroImageUrl } from "@/lib/blog-hero-image";
-import { getBlogPost } from "@/lib/api/public-content";
-import { mockBlogHighlights } from "@/lib/api/mock-content";
+import { getBlogHighlights, getBlogPost } from "@/lib/api/public-content";
 import { buildBlogMetadata } from "@/lib/seo";
 import { articleSchema, breadcrumbSchema, faqSchema } from "@/lib/schema";
 import { isValidLocale, canonicalUrl } from "@/lib/i18n";
@@ -29,7 +28,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   if (!isValidLocale(locale)) notFound();
 
   const l = locale as Locale;
-  const post = await getBlogPost(l, slug);
+  const [post, highlights] = await Promise.all([getBlogPost(l, slug), getBlogHighlights(l)]);
   const coverSrc = normalizeBlogHeroImageUrl(post.coverImageUrl);
   const postUrl = canonicalUrl(l, `/blog/${slug}`);
 
@@ -51,7 +50,10 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
       <div className="container">
         <Breadcrumb items={breadcrumbs} />
 
-        <div className="article-layout" style={{ marginTop: 24 }}>
+        <div
+          className={`article-layout${highlights.length === 0 ? " article-layout--single" : ""}`}
+          style={{ marginTop: 24 }}
+        >
           {/* Article */}
           <article
             className="article-body"
@@ -88,7 +90,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
           </article>
 
           {/* Sidebar */}
-          <HighlightsSidebar posts={mockBlogHighlights} locale={l} />
+          <HighlightsSidebar posts={highlights} locale={l} />
         </div>
 
         {/* FAQs — rendered as visible text (not hidden) for GEO */}
