@@ -103,12 +103,20 @@ All three public content methods in `PublicContentService` are decorated with Sp
 
 ### Cache names and TTLs
 
-| Cache name | Method | Key | Redis TTL |
+Configured in `CacheConfig.java` and used by `PublicContentService` / `ProductService` (see
+`@Cacheable` on each method). The `resource-list` name is evicted on publish for forward
+compatibility, but the public `ResourceService.list` method is not yet annotated — list reads
+always hit PostgreSQL.
+
+| Cache name | Method / service | Key | Redis TTL |
 |---|---|---|---|
-| `pages` | `getPage(slug, locale)` | `slug:locale` | 10 min |
-| `blog-list` | `getBlogList(locale, ...)` | `locale` (page 0 only) | 10 min |
-| `blog-detail` | `getBlogDetail(slug, locale)` | `slug:locale` | 20 min |
-| `resource-list` | _(reserved for resource service)_ | `locale` | 10 min |
+| `pages` | `PublicContentService.getPage` | `slug:locale` | 10 min |
+| `page-list` | `PublicContentService.getPublishedPageList` | `locale:limit` (entire cache cleared on publish) | 10 min |
+| `blog-list` | `PublicContentService.getBlogList` | `locale` (page 0 only) | 10 min |
+| `blog-highlights` | `PublicContentService.getBlogHighlights` | `locale` | 10 min |
+| `blog-detail` | `PublicContentService.getBlogDetail` | `slug:locale` | 20 min |
+| `product-list` | `ProductService.listPublishedProducts` | `locale` | 10 min |
+| `resource-list` | _(not yet @Cacheable; eviction only)_ | `locale` would apply when added | 10 min |
 
 **Why Redis TTL < ISR TTL?**  
 When ISR triggers a re-fetch (e.g. after a cache miss), the Spring API must return fresh
@@ -131,9 +139,11 @@ storm on the first deploy.  Flush Redis on deployment if DTOs change.
 
 ### Eviction on publish/unpublish
 
-`CacheService.evictContent(locale, slug)` calls `cacheManager.getCache(cacheName).evict(key)`
-for all four cache names.  If Redis is unavailable, the eviction is logged as a warning and
-the publish succeeds anyway — the next API request will re-populate the cache from PostgreSQL.
+`CacheService.evictContent(locale, slug)` evicts the Spring caches documented in
+`publishing-flow.md` (not a fixed count of four — includes e.g. `blog-highlights`, both
+`product-list` keys, and a full `page-list` clear). If Redis is unavailable, the eviction is
+logged as a warning and the publish succeeds anyway — the next API request will re-populate
+the cache from PostgreSQL.
 
 ---
 
@@ -221,13 +231,12 @@ to avoid hammering an unavailable API.
 
 ## What invalidates what
 
-| Event | Redis evicted | Next.js paths revalidated |
+| Event | Spring/Redis (see `CacheService`) | Next.js paths revalidated |
 |---|---|---|
-| Page published | `pages::slug:locale` | `/{locale}`, `/{locale}/blog`, `/{locale}/blog/{slug}`, `/{locale}/products/{slug}`, `/{locale}/resources` |
-| Page unpublished | Same as above | Same as above |
-| Blog post published | `pages::slug:locale`, `blog-list::locale`, `blog-detail::slug:locale` | Same as above |
-| Scheduled publish (auto) | Same as blog published | Same as above |
-| Redirect rule changed | N/A | Next.js restart or 5-min cache TTL |
+| Page published or unpublished | `pages`, `blog-list`, `blog-highlights`, `blog-detail`, `resource-list`, `product-list` (both locales), and full `page-list` clear for the given `slug`+`locale` keys | `/{locale}`, `/{locale}/blog`, `/{locale}/blog/{slug}`, `/{locale}/products`, `/{locale}/products/{slug}`, `/{locale}/resources`, `/{locale}/resources/{slug}` |
+| Linked locale group updated | `evictLinkedContentGroup` → repeat `evictContent` for each linked row | Same pattern per evicted item |
+| Blog highlights-only touch | `blog-highlights` + blog index path | `/{locale}/blog` |
+| Redirect rule changed | N/A (not in Redis page cache) | Next.js restart or 5-min middleware TTL |
 
 ---
 

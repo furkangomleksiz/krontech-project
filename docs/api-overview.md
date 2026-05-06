@@ -4,10 +4,14 @@
 
 | Method | Path | Notes |
 |---|---|---|
+| GET | `/api/v1/public/pages?locale=tr\|en&limit=24` | Published CMS pages (excluding `home`), newest first — homepage strip / admin “Pages” mirror |
 | GET | `/api/v1/public/pages/{slug}?locale=tr\|en` | Generic page metadata + content blocks + SEO |
 | GET | `/api/v1/public/blog?locale=tr\|en&page=0&size=10` | Paginated blog list |
 | GET | `/api/v1/public/blog/{slug}?locale=tr\|en` | Blog post detail |
+| GET | `/api/v1/public/blog/{slug}/counterpart?fromLocale=tr&toLocale=en` | Linked locale slug for `contentGroupId` (404 if none) — used by the locale switcher |
+| GET | `/api/v1/public/products?locale=tr\|en` | Published product cards for the catalog |
 | GET | `/api/v1/public/products/{slug}?locale=tr\|en` | Product detail + content blocks + SEO |
+| GET | `/api/v1/public/products/{slug}/counterpart?fromLocale=tr&toLocale=en` | Linked locale slug for products (404 if none) |
 | GET | `/api/v1/public/resources?locale=tr\|en&page=0&size=24` | Paginated resources (optional `resourceType` filter) |
 | GET | `/api/v1/preview?token={uuid}` | Token-gated preview for DRAFT/SCHEDULED content |
 
@@ -141,7 +145,16 @@ Set `objectKey` as `heroImageKey` on any content record to reference this asset.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/v1/admin/publishing/publish` | EDITOR + ADMIN | Transitions DRAFT/SCHEDULED → PUBLISHED; invalidates Redis cache key |
+| POST | `/api/v1/admin/publishing/publish` | EDITOR + ADMIN | DRAFT or SCHEDULED → PUBLISHED; `CacheService` eviction + async Next.js revalidation when configured |
+| POST | `/api/v1/admin/publishing/schedule` | EDITOR + ADMIN | DRAFT → SCHEDULED (`scheduledAt` in the future) |
+| POST | `/api/v1/admin/publishing/unpublish` | EDITOR + ADMIN | PUBLISHED or SCHEDULED → DRAFT |
+| POST | `/api/v1/admin/publishing/pages/{id}/preview-token` | EDITOR + ADMIN | Rotates `previewToken` for draft preview links |
+
+## Admin — Audit (read-only, EDITOR + ADMIN)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/v1/admin/audit?targetId=&action=&actor=&page=0&size=20` | Publishing and preview transition history |
 
 ## Admin — Form submissions (ADMIN only)
 

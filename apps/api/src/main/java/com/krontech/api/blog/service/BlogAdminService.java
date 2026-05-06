@@ -7,7 +7,6 @@ import com.krontech.api.blog.dto.BlogUpdateRequest;
 import com.krontech.api.blog.entity.BlogPost;
 import com.krontech.api.blog.repository.BlogPostRepository;
 import com.krontech.api.components.repository.ContentBlockRepository;
-import com.krontech.api.pages.repository.PageRepository;
 import com.krontech.api.localization.LocaleCode;
 import com.krontech.api.media.service.ObjectStorageClient;
 import com.krontech.api.publishing.PublishStatus;
@@ -27,7 +26,6 @@ import org.springframework.web.server.ResponseStatusException;
 public class BlogAdminService {
 
     private final BlogPostRepository blogPostRepository;
-    private final PageRepository pageRepository;
     private final ContentBlockRepository contentBlockRepository;
     private final ObjectStorageClient objectStorageClient;
     private final CacheService cacheService;
@@ -35,14 +33,12 @@ public class BlogAdminService {
 
     public BlogAdminService(
             BlogPostRepository blogPostRepository,
-            PageRepository pageRepository,
             ContentBlockRepository contentBlockRepository,
             ObjectStorageClient objectStorageClient,
             CacheService cacheService,
             AuditService auditService
     ) {
         this.blogPostRepository = blogPostRepository;
-        this.pageRepository = pageRepository;
         this.contentBlockRepository = contentBlockRepository;
         this.objectStorageClient = objectStorageClient;
         this.cacheService = cacheService;
@@ -69,6 +65,11 @@ public class BlogAdminService {
 
     public BlogAdminResponse create(BlogCreateRequest request) {
         LocaleCode localeCode = LocaleCode.valueOf(request.locale().toUpperCase());
+        if (blogPostRepository.existsBySlugAndLocale(request.slug(), localeCode)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A blog post already uses slug '" + request.slug() + "' for locale " + localeCode.name().toLowerCase() + ".");
+        }
         BlogPost post = new BlogPost();
         post.setPageType("blog-post");
         post.setSlug(request.slug());
@@ -100,7 +101,7 @@ public class BlogAdminService {
 
         String newSlug = request.slug().strip();
         LocaleCode newLocale = LocaleCode.valueOf(request.locale().toUpperCase());
-        if (pageRepository.existsBySlugAndLocaleAndIdNot(newSlug, newLocale, id)) {
+        if (blogPostRepository.existsBySlugAndLocaleAndIdNot(newSlug, newLocale, id)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Another page already uses slug '" + newSlug + "' for locale " + newLocale.name().toLowerCase() + ".");

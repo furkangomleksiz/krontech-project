@@ -148,7 +148,7 @@ separate table of translations keyed by a master record ID.
 - A row-per-locale lets each locale variant have an independent `PublishStatus`. The Turkish
   version of a product page can be PUBLISHED while the English version is still DRAFT —
   a genuine editorial workflow requirement.
-- `contentGroupId` is optional. A page with no translation simply has no group ID. When anıujkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkj
+- `contentGroupId` is optional. A page with no translation simply has no group ID. When an
   editor later creates the translation, they can link it by setting the same UUID.
 - Locale-prefixed canonical URLs (`/tr/products/kron-pam`, `/en/products/kron-pam`) are
   required for `hreflang` to signal locale equivalents to search engines. These URLs map
@@ -219,9 +219,9 @@ Two distinct concerns, handled at different layers.
 **SEO (search engines):**
 
 `SeoMetadata` is an `@Embeddable` type composed into every content entity. It carries
-`metaTitle`, `metaDescription`, `canonicalPath`, `robots`, `ogTitle`, `ogDescription`,
-and `ogImageKey`. A single `buildMetadata()` function in `lib/seo.ts` maps this to the
-Next.js `Metadata` type — no SEO logic is in page files.
+`metaTitle`, `metaDescription`, `canonicalPath`, `noIndex`, `ogTitle`, `ogDescription`,
+`ogImageKey`, and optional `structuredDataJson`. A single `buildMetadata()` function in
+`lib/seo.ts` maps this to the Next.js `Metadata` type — no SEO logic is in page files.
 
 `hreflang` alternates are generated dynamically based on the supported locales. The
 `x-default` alternate points to the Turkish locale (primary market). The dynamic sitemap
@@ -231,7 +231,7 @@ includes `alternateRefs` for each locale variant of each published page.
 
 Structured data (JSON-LD via `<JsonLd>` component) is placed on pages where the schema is
 accurate and non-empty: `Organization` (every page via layout), `SoftwareApplication`
-(product pages), `Article` with `datePublished` (blog posts), `FAQPage` (blog posts with FAQ
+(product pages), `BlogPosting` with `datePublished` (blog posts), `FAQPage` (blog posts with FAQ
 items), `BreadcrumbList` (all pages with a navigation path), `WebSite` with `SearchAction`
 (homepage only).
 

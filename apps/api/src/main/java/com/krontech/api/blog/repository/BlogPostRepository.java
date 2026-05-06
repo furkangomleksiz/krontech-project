@@ -18,6 +18,10 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, UUID> {
      */
     List<BlogPost> findByLocaleAndStatus(LocaleCode locale, PublishStatus status, Pageable pageable);
 
+    boolean existsBySlugAndLocale(String slug, LocaleCode locale);
+
+    boolean existsBySlugAndLocaleAndIdNot(String slug, LocaleCode locale, UUID id);
+
     Optional<BlogPost> findBySlugAndLocaleAndStatus(String slug, LocaleCode locale, PublishStatus status);
 
     Optional<BlogPost> findByContentGroupIdAndLocaleAndStatus(

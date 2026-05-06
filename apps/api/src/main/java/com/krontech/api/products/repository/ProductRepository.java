@@ -12,6 +12,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProductRepository extends JpaRepository<Product, java.util.UUID> {
 
+    boolean existsBySlugAndLocale(String slug, LocaleCode locale);
+
+    boolean existsBySlugAndLocaleAndIdNot(String slug, LocaleCode locale, UUID id);
+
     Optional<Product> findBySlugAndLocaleAndStatus(String slug, LocaleCode locale, PublishStatus status);
 
     Optional<Product> findByContentGroupIdAndLocaleAndStatus(

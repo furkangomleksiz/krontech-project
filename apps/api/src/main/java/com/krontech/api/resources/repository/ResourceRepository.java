@@ -18,6 +18,10 @@ public interface ResourceRepository extends JpaRepository<ResourceItem, UUID> {
     List<ResourceItem> findByLocaleAndStatusAndResourceType(
             LocaleCode locale, PublishStatus status, ResourceType resourceType, Pageable pageable);
 
+    boolean existsBySlugAndLocale(String slug, LocaleCode locale);
+
+    boolean existsBySlugAndLocaleAndIdNot(String slug, LocaleCode locale, UUID id);
+
     Optional<ResourceItem> findBySlugAndLocaleAndStatus(
             String slug, LocaleCode locale, PublishStatus status);
 

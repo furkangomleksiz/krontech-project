@@ -28,14 +28,25 @@ export function normalizeDetailTabs(
   return TAB_IDS.map((tab) => byTab.get(tab) ?? { tab, cards: [] });
 }
 
-/** Labels and icons aligned with product-detail screenshots (four fixed tabs). */
-export const PRODUCT_DETAIL_TAB_NAV: ReadonlyArray<{
-  id: ProductDetailTabId;
-  label: string;
-  icon: string;
-}> = [
-  { id: "solution", label: "Solution", icon: "▦" },
+type TabNavItem = { id: ProductDetailTabId; label: string; icon: string };
+
+const TAB_NAV_EN: ReadonlyArray<TabNavItem> = [
+  { id: "solution",     label: "Solution",     icon: "▦" },
   { id: "how_it_works", label: "How It Works?", icon: "⚙" },
-  { id: "key_benefits", label: "Key Benefits", icon: "▤" },
-  { id: "resources", label: "Resources", icon: "📋" },
+  { id: "key_benefits", label: "Key Benefits",  icon: "▤" },
+  { id: "resources",    label: "Resources",     icon: "📋" },
 ];
+
+const TAB_NAV_TR: ReadonlyArray<TabNavItem> = [
+  { id: "solution",     label: "Solution",      icon: "▦" },
+  { id: "how_it_works", label: "Nasıl Çalışır", icon: "⚙" },
+  { id: "key_benefits", label: "Faydaları",      icon: "▤" },
+  { id: "resources",    label: "Kaynaklar",      icon: "📋" },
+];
+
+/** @deprecated Use getProductDetailTabNav(locale) instead. */
+export const PRODUCT_DETAIL_TAB_NAV = TAB_NAV_EN;
+
+export function getProductDetailTabNav(locale: string): ReadonlyArray<TabNavItem> {
+  return locale === "tr" ? TAB_NAV_TR : TAB_NAV_EN;
+}

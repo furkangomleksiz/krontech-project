@@ -4,7 +4,6 @@ import com.krontech.api.audit.service.AuditService;
 import com.krontech.api.components.repository.ContentBlockRepository;
 import com.krontech.api.localization.LocaleCode;
 import com.krontech.api.media.service.ObjectStorageClient;
-import com.krontech.api.pages.repository.PageRepository;
 import com.krontech.api.products.ProductTabCardPresentation;
 import com.krontech.api.products.dto.ProductAdminResponse;
 import com.krontech.api.products.dto.ProductCreateRequest;
@@ -41,7 +40,6 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProductAdminService {
 
     private final ProductRepository productRepository;
-    private final PageRepository pageRepository;
     private final ProductTabCardRepository productTabCardRepository;
     private final ProductResourceLinkRepository productResourceLinkRepository;
     private final ResourceRepository resourceRepository;
@@ -53,7 +51,6 @@ public class ProductAdminService {
 
     public ProductAdminService(
             ProductRepository productRepository,
-            PageRepository pageRepository,
             ProductTabCardRepository productTabCardRepository,
             ProductResourceLinkRepository productResourceLinkRepository,
             ResourceRepository resourceRepository,
@@ -64,7 +61,6 @@ public class ProductAdminService {
             AuditService auditService
     ) {
         this.productRepository = productRepository;
-        this.pageRepository = pageRepository;
         this.productTabCardRepository = productTabCardRepository;
         this.productResourceLinkRepository = productResourceLinkRepository;
         this.resourceRepository = resourceRepository;
@@ -96,6 +92,11 @@ public class ProductAdminService {
     @Transactional
     public ProductAdminResponse create(ProductCreateRequest request) {
         LocaleCode localeCode = LocaleCode.valueOf(request.locale().toUpperCase());
+        if (productRepository.existsBySlugAndLocale(request.slug(), localeCode)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A page already uses slug '" + request.slug() + "' for locale " + localeCode.name().toLowerCase() + ".");
+        }
         Product product = new Product();
         product.setPageType("product");
         product.setSlug(request.slug());
@@ -131,7 +132,7 @@ public class ProductAdminService {
 
         String newSlug = request.slug().strip();
         LocaleCode newLocale = LocaleCode.valueOf(request.locale().toUpperCase());
-        if (pageRepository.existsBySlugAndLocaleAndIdNot(newSlug, newLocale, id)) {
+        if (productRepository.existsBySlugAndLocaleAndIdNot(newSlug, newLocale, id)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Another page already uses slug '" + newSlug + "' for locale " + newLocale.name().toLowerCase() + ".");

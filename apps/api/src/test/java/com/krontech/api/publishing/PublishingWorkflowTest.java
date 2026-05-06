@@ -41,12 +41,13 @@ class PublishingWorkflowTest {
 
     @Test
     void shouldScheduleDraftPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = draftPage("product-a", LocaleCode.TR);
-        when(pageRepository.findBySlugAndLocale("product-a", LocaleCode.TR)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
         when(pageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         Instant future = Instant.now().plusSeconds(3600);
-        PublishStateResponse response = service.schedule(new SchedulePageRequest("product-a", "tr", future));
+        PublishStateResponse response = service.schedule(new SchedulePageRequest(pageId, future));
 
         assertEquals(PublishStatus.SCHEDULED, page.getStatus());
         assertEquals(future, page.getScheduledAt());
@@ -56,21 +57,23 @@ class PublishingWorkflowTest {
 
     @Test
     void shouldRejectSchedulingPublishedPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("product-a", LocaleCode.TR, PublishStatus.PUBLISHED);
-        when(pageRepository.findBySlugAndLocale("product-a", LocaleCode.TR)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.schedule(new SchedulePageRequest("product-a", "tr", Instant.now().plusSeconds(100))));
+                () -> service.schedule(new SchedulePageRequest(pageId, Instant.now().plusSeconds(100))));
         assertEquals(409, ex.getStatusCode().value());
     }
 
     @Test
     void shouldRejectSchedulingAlreadyScheduledPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("product-a", LocaleCode.EN, PublishStatus.SCHEDULED);
-        when(pageRepository.findBySlugAndLocale("product-a", LocaleCode.EN)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.schedule(new SchedulePageRequest("product-a", "en", Instant.now().plusSeconds(100))));
+                () -> service.schedule(new SchedulePageRequest(pageId, Instant.now().plusSeconds(100))));
         assertEquals(409, ex.getStatusCode().value());
     }
 
@@ -78,11 +81,12 @@ class PublishingWorkflowTest {
 
     @Test
     void shouldUnpublishPublishedPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("blog-post-1", LocaleCode.EN, PublishStatus.PUBLISHED);
-        when(pageRepository.findBySlugAndLocale("blog-post-1", LocaleCode.EN)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
         when(pageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PublishStateResponse response = service.unpublish(new UnpublishPageRequest("blog-post-1", "en"));
+        PublishStateResponse response = service.unpublish(new UnpublishPageRequest(pageId));
 
         assertEquals(PublishStatus.DRAFT, page.getStatus());
         assertEquals("DRAFT", response.status());
@@ -92,11 +96,12 @@ class PublishingWorkflowTest {
 
     @Test
     void shouldUnpublishScheduledPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("blog-post-2", LocaleCode.TR, PublishStatus.SCHEDULED);
-        when(pageRepository.findBySlugAndLocale("blog-post-2", LocaleCode.TR)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
         when(pageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PublishStateResponse response = service.unpublish(new UnpublishPageRequest("blog-post-2", "tr"));
+        service.unpublish(new UnpublishPageRequest(pageId));
 
         assertEquals(PublishStatus.DRAFT, page.getStatus());
         verify(cacheService).evictContent("tr", "blog-post-2");
@@ -104,11 +109,12 @@ class PublishingWorkflowTest {
 
     @Test
     void shouldRejectUnpublishingDraftPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = draftPage("blog-post-3", LocaleCode.EN);
-        when(pageRepository.findBySlugAndLocale("blog-post-3", LocaleCode.EN)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.unpublish(new UnpublishPageRequest("blog-post-3", "en")));
+                () -> service.unpublish(new UnpublishPageRequest(pageId)));
         assertEquals(409, ex.getStatusCode().value());
     }
 
@@ -141,11 +147,12 @@ class PublishingWorkflowTest {
 
     @Test
     void shouldNotWriteAuditOnConflictingPublish() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("home", LocaleCode.EN, PublishStatus.PUBLISHED);
-        when(pageRepository.findBySlugAndLocale("home", LocaleCode.EN)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
 
         assertThrows(ResponseStatusException.class,
-                () -> service.publish(new com.krontech.api.publishing.dto.PublishPageRequest("home", "en")));
+                () -> service.publish(new com.krontech.api.publishing.dto.PublishPageRequest(pageId)));
 
         verify(auditService, never()).record(any(), any(), any(), any(), any());
     }

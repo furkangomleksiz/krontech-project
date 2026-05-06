@@ -1,10 +1,7 @@
 package com.krontech.api.publishing.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 
-public record PublishPageRequest(
-        @NotBlank String slug,
-        @NotBlank @Pattern(regexp = "^(tr|en)$") String locale
-) {
+public record PublishPageRequest(@NotNull UUID pageId) {
 }

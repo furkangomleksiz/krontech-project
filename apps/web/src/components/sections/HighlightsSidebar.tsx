@@ -19,7 +19,7 @@ export function HighlightsSidebar({ posts, locale, decorative }: HighlightsSideb
 
   return (
     <aside className="sidebar-desktop" aria-label="Blog highlights">
-      <h2 className="sidebar__heading">Highlights</h2>
+      <h2 className="sidebar__heading">{locale === "tr" ? "Öne Çıkanlar" : "Highlights"}</h2>
       <ul className="highlight-list">
         {posts.map((post) => (
           <li key={post.slug}>

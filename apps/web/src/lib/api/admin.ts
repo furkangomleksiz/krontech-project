@@ -809,37 +809,28 @@ export function deactivateUser(id: string): Promise<UserAdminItem> {
 }
 
 // ── Publishing ────────────────────────────────────────────────────────────────
-// The backend publishing endpoints are keyed by slug + locale (not by ID).
-// The page ID is only used for preview token rotation.
 
-export function publishContent(
-  slug: string,
-  locale: string,
-): Promise<PublishStateResponse> {
+export function publishContent(pageId: string): Promise<PublishStateResponse> {
   return adminFetch<PublishStateResponse>("/admin/publishing/publish", {
     method: "POST",
-    body: JSON.stringify({ slug, locale }),
+    body: JSON.stringify({ pageId }),
   });
 }
 
 export function scheduleContent(
-  slug: string,
-  locale: string,
+  pageId: string,
   scheduledAt: string,
 ): Promise<PublishStateResponse> {
   return adminFetch<PublishStateResponse>("/admin/publishing/schedule", {
     method: "POST",
-    body: JSON.stringify({ slug, locale, scheduledAt }),
+    body: JSON.stringify({ pageId, scheduledAt }),
   });
 }
 
-export function unpublishContent(
-  slug: string,
-  locale: string,
-): Promise<PublishStateResponse> {
+export function unpublishContent(pageId: string): Promise<PublishStateResponse> {
   return adminFetch<PublishStateResponse>("/admin/publishing/unpublish", {
     method: "POST",
-    body: JSON.stringify({ slug, locale }),
+    body: JSON.stringify({ pageId }),
   });
 }
 

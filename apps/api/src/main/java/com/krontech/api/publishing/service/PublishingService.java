@@ -2,7 +2,6 @@ package com.krontech.api.publishing.service;
 
 import com.krontech.api.audit.service.AuditService;
 import com.krontech.api.blog.entity.BlogPost;
-import com.krontech.api.localization.LocaleCode;
 import com.krontech.api.pages.entity.Page;
 import com.krontech.api.pages.repository.PageRepository;
 import com.krontech.api.products.entity.Product;
@@ -54,8 +53,7 @@ public class PublishingService {
      * Records publishedAt and evicts the content cache.
      */
     public PublishStateResponse publish(PublishPageRequest request) {
-        LocaleCode locale = LocaleCode.valueOf(request.locale().toUpperCase());
-        Page page = findBySlugAndLocaleOrThrow(request.slug(), locale);
+        Page page = findOrThrow(request.pageId());
 
         if (page.getStatus() == PublishStatus.PUBLISHED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -67,7 +65,7 @@ public class PublishingService {
         page.setPublishedAt(Instant.now());
         pageRepository.save(page);
 
-        cacheService.evictContent(request.locale(), request.slug());
+        cacheService.evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
         cacheService.evictLinkedContentGroup(page.getContentGroupId());
         auditService.record("PUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 prev.name() + " → PUBLISHED");
@@ -80,8 +78,7 @@ public class PublishingService {
      * The scheduled promotion is carried out by {@link ScheduledPublishingService}.
      */
     public PublishStateResponse schedule(SchedulePageRequest request) {
-        LocaleCode locale = LocaleCode.valueOf(request.locale().toUpperCase());
-        Page page = findBySlugAndLocaleOrThrow(request.slug(), locale);
+        Page page = findOrThrow(request.pageId());
 
         if (page.getStatus() != PublishStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -103,8 +100,7 @@ public class PublishingService {
      * Evicts the content cache so the page is no longer served publicly.
      */
     public PublishStateResponse unpublish(UnpublishPageRequest request) {
-        LocaleCode locale = LocaleCode.valueOf(request.locale().toUpperCase());
-        Page page = findBySlugAndLocaleOrThrow(request.slug(), locale);
+        Page page = findOrThrow(request.pageId());
 
         if (page.getStatus() == PublishStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -115,7 +111,7 @@ public class PublishingService {
         page.setStatus(PublishStatus.DRAFT);
         pageRepository.save(page);
 
-        cacheService.evictContent(request.locale(), request.slug());
+        cacheService.evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
         cacheService.evictLinkedContentGroup(page.getContentGroupId());
         auditService.record("UNPUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 prev.name() + " → DRAFT");
@@ -129,8 +125,7 @@ public class PublishingService {
      * {@code GET /api/v1/preview?token={token}}.
      */
     public PreviewTokenResponse rotatePreviewToken(UUID pageId) {
-        Page page = pageRepository.findById(pageId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Page not found."));
+        Page page = findOrThrow(pageId);
 
         UUID token = UUID.randomUUID();
         page.setPreviewToken(token);
@@ -172,10 +167,9 @@ public class PublishingService {
         return "PAGE";
     }
 
-    private Page findBySlugAndLocaleOrThrow(String slug, LocaleCode locale) {
-        return pageRepository.findBySlugAndLocale(slug, locale)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No page found for slug='" + slug + "' locale=" + locale.name()));
+    private Page findOrThrow(UUID pageId) {
+        return pageRepository.findById(pageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Page not found."));
     }
 
     private PublishStateResponse toStateResponse(Page page) {

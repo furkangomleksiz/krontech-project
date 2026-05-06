@@ -122,13 +122,13 @@ Each call rotates (invalidates) the previous token.
 The Next.js app exposes `/preview?token={token}` — a client-side page that:
 
 1. Reads `?token` from the query string.
-2. Fetches `GET {NEXT_PUBLIC_API_BASE_URL}/preview?token={token}`.
+2. Fetches `GET` the preview API using `getApiBaseUrl()` (which includes the `/api/v1` prefix) + `/preview?token={token}` — i.e. `GET /api/v1/preview?token=...`.
 3. Renders a "PREVIEW MODE" banner + the page's title, summary, and content blocks.
 4. Shows block payload details (structured fields for hero/text/split-cta; collapsed JSON for other types).
 
 **Admin workflow:**
 1. Open the content edit form in `/admin/…`.
-2. Click **Get Preview Link** in the publish bar — this calls `POST /admin/publishing/pages/{id}/preview-token`.
+2. Click **Get Preview Link** in the publish bar — this calls `POST /api/v1/admin/publishing/pages/{id}/preview-token` (via the admin API client).
 3. An **Open Preview ↗** button appears, linking to `/preview?token={uuid}`.
 4. Share the URL with reviewers; it works without authentication.
 5. Rotating the token invalidates the previous link immediately.
@@ -158,17 +158,26 @@ promotion loop to avoid double-promotion races. For a single-instance deployment
 
 ## Cache invalidation
 
-`CacheService` maintains the following key patterns and evicts them on every
-`publish`, `unpublish`, or scheduled-promotion event:
+`CacheService.evictContent(locale, slug)` runs on every successful `publish`, `unpublish`, or
+scheduled auto-publish. It evicts keys from the Spring `CacheManager` caches (backed by Redis when
+enabled):
 
-| Key pattern                    | Eviction trigger                    |
-|-------------------------------|-------------------------------------|
-| `cache:page:{locale}:{slug}`  | Any status change on the page       |
-| `cache:blog:list:{locale}`    | Any status change (list may change) |
-| `cache:resource:list:{locale}`| Any status change (list may change) |
+| Spring cache name   | Key (conceptual)     | Notes |
+|---------------------|----------------------|--------|
+| `pages`             | `{slug}:{locale}`    | Generic published pages by slug |
+| `blog-list`         | `{locale}`           | First page of blog list only is cached in `PublicContentService` |
+| `blog-highlights`   | `{locale}`           | Sidebar / highlight strip |
+| `blog-detail`       | `{slug}:{locale}`    | |
+| `resource-list`     | `{locale}`           | Name is evicted for forward compatibility; list endpoint is not yet `@Cacheable` |
+| `product-list`      | `tr` and `en`        | Both locales evicted on any content change |
+| `page-list`         | —                    | Entire cache cleared (`clear()`) because keys include limit |
 
-Cache eviction failures are logged and swallowed — they must not block the publish flow.
-The Next.js ISR revalidation picks up the change on the next request cycle.
+`evictLinkedContentGroup(contentGroupId)` then calls `evictContent` for every linked locale variant so
+translations and locale switching stay consistent.
+
+On publish, the service also enqueues async `POST` calls to the Next.js `/api/revalidate` route
+(when `WEB_APP_URL` and `REVALIDATE_SECRET` are set). Eviction and revalidation failures are logged
+and must not block the publish response.
 
 ---
 
@@ -185,7 +194,7 @@ Every successful state transition writes a row to `audit_logs`:
 | targetSlug  | `secure-access-gateway`             |
 | details     | `DRAFT → PUBLISHED`                 |
 
-Query the audit trail via `GET /api/v1/admin/audit` (ADMIN only, supports filters by
+Query the audit trail via `GET /api/v1/admin/audit` (ADMIN or EDITOR; supports filters by
 `targetId`, `action`, `actor`).
 
 ---

@@ -7,16 +7,28 @@ interface SiteHeaderProps {
   locale: Locale;
 }
 
-const navItems = [
-  { label: "Products",   hasDropdown: true },
-  { label: "Solutions",  hasDropdown: true },
-  { label: "Partners",   hasDropdown: true },
-  { label: "Resources",  hasDropdown: true },
-  { label: "About Us",   hasDropdown: true },
-  { label: "Contact",    hasDropdown: false },
-];
+const navItemsByLocale: Record<string, { label: string; key: string; hasDropdown: boolean }[]> = {
+  en: [
+    { label: "Products",   key: "Products",   hasDropdown: true },
+    { label: "Solutions",  key: "Solutions",  hasDropdown: true },
+    { label: "Partners",   key: "Partners",   hasDropdown: true },
+    { label: "Resources",  key: "Resources",  hasDropdown: true },
+    { label: "About Us",   key: "About Us",   hasDropdown: true },
+    { label: "Contact",    key: "Contact",    hasDropdown: false },
+  ],
+  tr: [
+    { label: "Ürünler",      key: "Products",   hasDropdown: true },
+    { label: "Sektörler",    key: "Solutions",  hasDropdown: true },
+    { label: "İş Ortaklığı", key: "Partners",   hasDropdown: true },
+    { label: "Kaynaklar",    key: "Resources",  hasDropdown: true },
+    { label: "Hakkımızda",   key: "About Us",   hasDropdown: true },
+    { label: "İletişim",     key: "Contact",    hasDropdown: false },
+  ],
+};
 
 export function SiteHeader({ locale }: SiteHeaderProps) {
+  const navItems = navItemsByLocale[locale] ?? navItemsByLocale.en;
+
   return (
     <header className="site-header">
       <div className="nav-shell">
@@ -36,17 +48,17 @@ export function SiteHeader({ locale }: SiteHeaderProps) {
         {/* Primary nav */}
         <nav className="nav-primary" aria-label="Primary navigation">
           <ul className="nav-primary__list">
-            {navItems.map(({ label, hasDropdown }) => {
+            {navItems.map(({ label, key, hasDropdown }) => {
               const href =
-                label === "Contact"
+                key === "Contact"
                   ? `/${locale}/contact`
-                  : label === "Resources"
+                  : key === "Resources"
                   ? `/${locale}/resources`
-                  : label === "Products"
+                  : key === "Products"
                   ? `/${locale}/products`
                   : "#";
               return (
-                <li key={label}>
+                <li key={key}>
                   <Link href={href} className="nav-primary__link">
                     {label}
                     {hasDropdown && (

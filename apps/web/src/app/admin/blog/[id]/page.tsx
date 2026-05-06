@@ -79,7 +79,7 @@ export default function EditBlogPostPage() {
   async function doPublish() {
     setPubBusy(true); setError("");
     try {
-      const res = await publishContent(form.slug, form.locale);
+      const res = await publishContent(id);
       setItem((p) => p ? { ...p, status: res.status as BlogAdminItem["status"], publishedAt: res.publishedAt } : p);
       setAuditRefresh((r) => r + 1);
       setSuccess("Published.");
@@ -88,7 +88,7 @@ export default function EditBlogPostPage() {
   async function doUnpublish() {
     setPubBusy(true); setError("");
     try {
-      const res = await unpublishContent(form.slug, form.locale);
+      const res = await unpublishContent(id);
       setItem((p) => p ? { ...p, status: res.status as BlogAdminItem["status"] } : p);
       setAuditRefresh((r) => r + 1);
       setSuccess("Unpublished.");
@@ -97,7 +97,7 @@ export default function EditBlogPostPage() {
   async function doSchedule(dt: string) {
     setShowSchedule(false); setPubBusy(true); setError("");
     try {
-      const res = await scheduleContent(form.slug, form.locale, dt);
+      const res = await scheduleContent(id, dt);
       setItem((p) => p ? { ...p, status: res.status as BlogAdminItem["status"], scheduledAt: res.scheduledAt } : p);
       setAuditRefresh((r) => r + 1);
       setSuccess(`Scheduled for ${new Date(dt).toLocaleString()}.`);

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { FeatureRow } from "@/components/sections/FeatureRow";
 import { ResourceDocumentGrid } from "@/components/sections/ResourceDocumentGrid";
-import { normalizeDetailTabs, PRODUCT_DETAIL_TAB_NAV } from "@/lib/product-detail-tabs";
+import { normalizeDetailTabs, getProductDetailTabNav } from "@/lib/product-detail-tabs";
 import type {
   Locale,
   ProductDetailTabId,
@@ -49,6 +49,7 @@ export function ProductDetailTabs({
 }: ProductDetailTabsProps) {
   const linkedResources = linkedResourcesProp ?? [];
   const tabs = normalizeDetailTabs(detailTabs);
+  const tabNav = getProductDetailTabNav(locale);
   const useResourcesDocuments = structuredResourcesTab(resourcesIntro, linkedResources);
 
   const [active, setActive] = useState<ProductDetailTabId>(tabs[0]?.tab ?? "solution");
@@ -70,7 +71,7 @@ export function ProductDetailTabs({
     <>
       <nav className="product-tab-nav" aria-label="Product sections">
         <div className="product-tab-nav__inner" role="tablist">
-          {PRODUCT_DETAIL_TAB_NAV.map((tab) => (
+          {tabNav.map((tab) => (
             <button
               key={tab.id}
               type="button"

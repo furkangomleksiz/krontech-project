@@ -49,7 +49,7 @@ The ContactBand (dark photo-overlay section with the compact inline form) appear
 
 ### Locale switcher
 
-The screenshots show a language dropdown on the top-right of the header with options EN / TR / DE. Decision: German (`DE`) is not included in the supported locales (`tr` and `en` only, per `AGENTS.md`). The switcher links directly to the equivalent locale root (`/tr` or `/en`) rather than attempting to mirror the current slug, since locale slug equivalents require a content group lookup that isn't yet wired.
+The screenshots show a language dropdown on the top-right of the header with options EN / TR / DE. Decision: German (`DE`) is not included in the supported locales (`tr` and `en` only, per `AGENTS.md`). The live control (`LocaleSwitcher`) calls `GET /api/nav/locale-target`, which runs `resolveLocaleTargetHref` in `lib/locale-switch.ts`: static routes keep the same path, blog and product detail URLs use `GET /api/v1/public/.../counterpart` when `contentGroupId` links differ by locale, and other paths fall back to the target locale home.
 
 ---
 

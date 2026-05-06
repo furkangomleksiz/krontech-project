@@ -31,7 +31,7 @@ Modules and their current status:
 | `publishing` | Active | Full state machine (DRAFT/SCHEDULED/PUBLISHED); `CacheService` Redis invalidation; `ScheduledPublishingService` auto-promotion; preview token rotation |
 | `media` | Active | `MediaAsset` entity; `ObjectStorageClient` interface + AWS SDK v2 S3 implementation; `POST /admin/media/upload` multipart endpoint; metadata CRUD; auto bucket creation on startup |
 | `redirects` | Active | `RedirectRule` entity/repository; `RedirectService`; public bulk-load + single-resolve endpoints; admin CRUD; Next.js Edge Middleware applies rules at request time |
-| `audit` | Active | `AuditLog` entity + `AuditService` (auto-resolves actor); `GET /admin/audit` (ADMIN only) |
+| `audit` | Active | `AuditLog` entity + `AuditService` (auto-resolves actor); `GET /admin/audit` (ADMIN or EDITOR) |
 | `seo` | Shared type | `SeoMetadata` `@Embeddable` + `SeoMapper` + `SeoRequest`/`SeoResponse` DTOs |
 | `localization` | Shared type | `LocaleCode` enum used across modules |
 

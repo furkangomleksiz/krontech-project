@@ -73,6 +73,11 @@ public class ResourceAdminService {
     public ResourceAdminResponse create(ResourceAdminRequest request) {
         validateFileOrUrl(request);
         LocaleCode localeCode = LocaleCode.valueOf(request.locale().toUpperCase());
+        if (resourceRepository.existsBySlugAndLocale(request.slug(), localeCode)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A resource already uses slug '" + request.slug() + "' for locale " + localeCode.name().toLowerCase() + ".");
+        }
         ResourceItem item = new ResourceItem();
         item.setPageType("resource");
         item.setSlug(request.slug());
@@ -102,6 +107,11 @@ public class ResourceAdminService {
         validateFileOrUrl(request);
         ResourceItem item = findOrThrow(id);
         LocaleCode localeCode = LocaleCode.valueOf(request.locale().toUpperCase());
+        if (resourceRepository.existsBySlugAndLocaleAndIdNot(request.slug(), localeCode, id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Another resource already uses slug '" + request.slug() + "' for locale " + localeCode.name().toLowerCase() + ".");
+        }
         item.setSlug(request.slug());
         item.setLocale(localeCode);
         item.setTitle(request.title());

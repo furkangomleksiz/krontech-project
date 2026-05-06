@@ -13,11 +13,6 @@ public interface PageRepository extends JpaRepository<Page, UUID> {
 
     Optional<Page> findBySlugAndLocaleAndStatus(String slug, LocaleCode locale, PublishStatus status);
 
-    Optional<Page> findBySlugAndLocale(String slug, LocaleCode locale);
-
-    /** True if another row (any page type) already owns this slug+locale pair. */
-    boolean existsBySlugAndLocaleAndIdNot(String slug, LocaleCode locale, UUID id);
-
     Optional<Page> findByPreviewToken(UUID previewToken);
 
     /** Returns all locale variants linked to the same content group. */

@@ -63,7 +63,7 @@ export default function EditResourcePage() {
   async function doPublish() {
     setPubBusy(true); setError("");
     try {
-      const res = await publishContent(form.slug, form.locale);
+      const res = await publishContent(id);
       setItem((p) => p ? { ...p, status: res.status as ResourceAdminItem["status"] } : p);
       setSuccess("Published.");
     } catch (e) { setError(e instanceof Error ? e.message : "Publish failed."); } finally { setPubBusy(false); }
@@ -71,7 +71,7 @@ export default function EditResourcePage() {
   async function doUnpublish() {
     setPubBusy(true); setError("");
     try {
-      const res = await unpublishContent(form.slug, form.locale);
+      const res = await unpublishContent(id);
       setItem((p) => p ? { ...p, status: res.status as ResourceAdminItem["status"] } : p);
       setSuccess("Unpublished.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unpublish failed."); } finally { setPubBusy(false); }
@@ -79,7 +79,7 @@ export default function EditResourcePage() {
   async function doSchedule(dt: string) {
     setShowSchedule(false); setPubBusy(true); setError("");
     try {
-      const res = await scheduleContent(form.slug, form.locale, dt);
+      const res = await scheduleContent(id, dt);
       setItem((p) => p ? { ...p, status: res.status as ResourceAdminItem["status"] } : p);
       setSuccess(`Scheduled for ${new Date(dt).toLocaleString()}.`);
     } catch (e) { setError(e instanceof Error ? e.message : "Schedule failed."); } finally { setPubBusy(false); }

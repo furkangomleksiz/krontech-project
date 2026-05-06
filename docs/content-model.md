@@ -1,6 +1,6 @@
 # Content Model — First-Pass Reference
 
-> Status: implemented and passing `mvn test`. Last revised after the content model refinement pass.
+> Reference for the JPA model and API DTOs. Reconcile with `apps/api` entities when in doubt.
 
 ---
 
@@ -92,6 +92,7 @@ Extends `Page`. Discriminator value: `RESOURCE`.
 | `resourceType` | ENUM | `DATASHEET`, `WHITEPAPER`, `CASE_STUDY`, `VIDEO`, `OTHER` |
 | `fileKey` | VARCHAR(500) | S3 objectKey; nullable if resource is external |
 | `externalUrl` | VARCHAR(1000) | External link; nullable if file is S3-stored |
+| `filePreviewImageKey` | VARCHAR(500) | Optional JPEG preview of a PDF; URL resolved via `ObjectStorageClient` |
 
 At least one of `fileKey` or `externalUrl` must be non-null. This is enforced at the service layer, not the database level, to allow partial admin saves.
 
@@ -141,6 +142,7 @@ Lead/contact form captures.
 | `fullName` | VARCHAR | |
 | `email` | VARCHAR | |
 | `company` | VARCHAR | |
+| `department` | VARCHAR(200) | Optional |
 | `phone` | VARCHAR(200) | Optional |
 | `jobTitle` | VARCHAR(200) | Optional |
 | `message` | TEXT | |
@@ -153,7 +155,7 @@ Lead/contact form captures.
 
 ### `RedirectRule` (table: `redirect_rules`)
 
-HTTP redirects served by the frontend middleware (or a future API endpoint).
+HTTP redirects: rules are read from the API (`GET /api/v1/public/redirects`) and applied in Next.js Edge Middleware before rendering.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -161,6 +163,7 @@ HTTP redirects served by the frontend middleware (or a future API endpoint).
 | `targetPath` | VARCHAR | Destination path |
 | `statusCode` | INT | `301` (permanent) or `302` (temporary) |
 | `active` | BOOLEAN | Inactive rules are preserved but not applied |
+| `notes` | VARCHAR(1000) | Optional migration/audit text |
 
 ---
 
@@ -198,8 +201,8 @@ DRAFT ──schedule()─▶ SCHEDULED ──publish()──▶ PUBLISHED
 
 - `PublishingService.publish()` accepts both `DRAFT` and `SCHEDULED` pages
 - `publishedAt` is set to `Instant.now()` at the transition point
-- `scheduledAt` is set by the editor when choosing a future publish time; a background worker (future pass) will promote `SCHEDULED` pages when `scheduledAt` is past
-- On publish, the Redis key `cache:page:{locale}:{slug}` is evicted
+- `scheduledAt` is set by the editor when choosing a future publish time; `ScheduledPublishingService` (fixed-delay scheduler) promotes `SCHEDULED` rows to `PUBLISHED` when `scheduledAt` is in the past
+- On every publish, unpublish, or successful scheduled promotion, `CacheService` evicts the relevant Spring/Redis public caches and (when configured) triggers Next.js on-demand revalidation
 
 ---
 
@@ -247,13 +250,12 @@ Blog detail does not include blocks — the `body` field carries the full articl
 
 ---
 
-## What This Model Does Not Yet Cover
+## What this model does not yet cover
 
 | Concern | Notes |
 |---|---|
-| Content versioning | No version history; later add a `page_versions` snapshot table |
-| Tag taxonomy | `BlogPost.tags` is comma-separated; upgrade to a `tags` + `page_tags` join table when filtering is needed |
-| Scheduled publish worker | `scheduledAt` field is in place; a `@Scheduled` bean or a queue consumer will drive promotion |
-| Media upload endpoint | `MediaAsset` entity and `ObjectStorageClient` are ready; upload endpoint is not yet implemented |
-| Redirect middleware | `RedirectRule` is stored; serving logic not yet wired in the frontend or a filter |
-| Admin CRUD for pages/blocks | Entities and repositories are ready; admin controllers are not yet built |
+| Content versioning | No version history; a future `page_versions` snapshot table would support rollback |
+| Tag taxonomy | `BlogPost.tags` is comma-separated; a `tags` + `page_tags` join table would help if faceted blog filtering is required |
+| Public sitemap for all blog URLs | The Next.js sitemap still includes blog post URLs from mock data for structural coverage; wiring it to `GET /api/v1/public/blog` (both locales) is the follow-up for production accuracy |
+| Redis cache on resource list | `ResourceService.list` is not `@Cacheable`; `resource-list` is registered in cache config and evicted on publish for forward compatibility |
+| Wildcard redirect rules | Only exact `sourcePath` matches; prefix/wildcard rules are out of scope (see `docs/seo-migration.md`) |

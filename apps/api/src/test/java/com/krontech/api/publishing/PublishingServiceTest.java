@@ -16,6 +16,7 @@ import com.krontech.api.publishing.dto.PublishStateResponse;
 import com.krontech.api.publishing.service.CacheService;
 import com.krontech.api.publishing.service.PublishingService;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,11 +32,12 @@ class PublishingServiceTest {
 
     @Test
     void shouldPublishDraftPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = draftPage("home", LocaleCode.EN);
-        when(pageRepository.findBySlugAndLocale("home", LocaleCode.EN)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
         when(pageRepository.save(any(Page.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PublishStateResponse response = service.publish(new PublishPageRequest("home", "en"));
+        PublishStateResponse response = service.publish(new PublishPageRequest(pageId));
 
         assertEquals(PublishStatus.PUBLISHED, page.getStatus());
         assertEquals("PUBLISHED", response.status());
@@ -45,11 +47,12 @@ class PublishingServiceTest {
 
     @Test
     void shouldPublishScheduledPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("about", LocaleCode.TR, PublishStatus.SCHEDULED);
-        when(pageRepository.findBySlugAndLocale("about", LocaleCode.TR)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
         when(pageRepository.save(any(Page.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PublishStateResponse response = service.publish(new PublishPageRequest("about", "tr"));
+        PublishStateResponse response = service.publish(new PublishPageRequest(pageId));
 
         assertEquals(PublishStatus.PUBLISHED, page.getStatus());
         assertEquals("PUBLISHED", response.status());
@@ -58,20 +61,21 @@ class PublishingServiceTest {
 
     @Test
     void shouldRejectPublishingAlreadyPublishedPage() {
+        UUID pageId = UUID.randomUUID();
         Page page = pageWithStatus("home", LocaleCode.EN, PublishStatus.PUBLISHED);
-        when(pageRepository.findBySlugAndLocale("home", LocaleCode.EN)).thenReturn(Optional.of(page));
+        when(pageRepository.findById(pageId)).thenReturn(Optional.of(page));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.publish(new PublishPageRequest("home", "en")));
+                () -> service.publish(new PublishPageRequest(pageId)));
         assertEquals(409, ex.getStatusCode().value());
     }
 
     @Test
     void shouldThrowNotFoundWhenPageMissingOnPublish() {
-        when(pageRepository.findBySlugAndLocale(any(), any())).thenReturn(Optional.empty());
+        when(pageRepository.findById(any())).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.publish(new PublishPageRequest("missing", "en")));
+                () -> service.publish(new PublishPageRequest(UUID.randomUUID())));
         assertEquals(404, ex.getStatusCode().value());
     }
 

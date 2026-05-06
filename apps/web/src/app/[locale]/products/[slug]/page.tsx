@@ -74,6 +74,9 @@ export default async function ProductDetailPage({ params }: ProductDetailProps) 
   if (!isValidLocale(locale)) notFound();
 
   const l = locale as Locale;
+  const isTr = l === "tr";
+  const ctaDownload = isTr ? "Datasheet'i İndir" : "Download Datasheet";
+  const ctaDemo    = isTr ? "Demo Talep Et"     : "Request a Demo";
   const productRes = await getCachedPublicProduct(l, slug);
 
   if (productRes.kind === "not_found") {
@@ -106,8 +109,8 @@ export default async function ProductDetailPage({ params }: ProductDetailProps) 
           subtitle={product.summary}
           backgroundImageUrl={product.heroImageUrl ?? undefined}
           breadcrumbs={breadcrumbs}
-          ctaPrimary={{ label: "Download Datasheet", href: `/${l}/resources` }}
-          ctaSecondary={{ label: "Request a Demo", href: `/${l}/contact` }}
+          ctaPrimary={{ label: ctaDownload, href: `/${l}/resources` }}
+          ctaSecondary={{ label: ctaDemo, href: `/${l}/contact` }}
         />
 
         <ProductDetailTabs
