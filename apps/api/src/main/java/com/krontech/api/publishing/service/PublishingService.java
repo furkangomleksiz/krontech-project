@@ -65,7 +65,7 @@ public class PublishingService {
         page.setPublishedAt(Instant.now());
         pageRepository.save(page);
 
-        cacheService.evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
+        cacheService.evictForPage(page);
         cacheService.evictLinkedContentGroup(page.getContentGroupId());
         auditService.record("PUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 prev.name() + " → PUBLISHED");
@@ -111,7 +111,7 @@ public class PublishingService {
         page.setStatus(PublishStatus.DRAFT);
         pageRepository.save(page);
 
-        cacheService.evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
+        cacheService.evictForPage(page);
         cacheService.evictLinkedContentGroup(page.getContentGroupId());
         auditService.record("UNPUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 prev.name() + " → DRAFT");
@@ -143,7 +143,7 @@ public class PublishingService {
         page.setPublishedAt(Instant.now());
         pageRepository.save(page);
 
-        cacheService.evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
+        cacheService.evictForPage(page);
         cacheService.evictLinkedContentGroup(page.getContentGroupId());
         auditService.record("SCHEDULED_PUBLISH", auditTargetType(page), page.getId(), page.getSlug(),
                 "SCHEDULED → PUBLISHED (auto-promoted by scheduler)");

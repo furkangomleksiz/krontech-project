@@ -1,7 +1,10 @@
 package com.krontech.api.publishing.service;
 
+import com.krontech.api.blog.entity.BlogPost;
 import com.krontech.api.pages.entity.Page;
 import com.krontech.api.pages.repository.PageRepository;
+import com.krontech.api.products.entity.Product;
+import com.krontech.api.resources.entity.ResourceItem;
 import jakarta.annotation.PostConstruct;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -9,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,16 +27,24 @@ import org.springframework.web.client.RestClient;
  *
  * <h2>Two-layer eviction on every publish/unpublish</h2>
  * <ol>
- *   <li><strong>Redis (Spring Cache):</strong> Evicts the affected entries from the
- *       {@code pages}, {@code page-list}, {@code blog-list}, {@code blog-highlights}, {@code blog-detail}, and {@code resource-list}
- *       caches managed by {@link com.krontech.api.config.CacheConfig}.  The next API
- *       request will re-populate Redis from PostgreSQL.</li>
+ *   <li><strong>Redis (Spring Cache):</strong> Evicts only the caches relevant to the changed
+ *       content type — blog, product, resource, or generic page — so a slug shared across
+ *       dtypes (permitted since V2 unique constraints are per-dtype) never causes cross-type
+ *       eviction.  Evicting a non-existent key is safe and has no side effects.</li>
  *   <li><strong>Next.js ISR:</strong> Asynchronously calls
- *       {@code POST {webAppUrl}/api/revalidate?secret=...&path=...} for all frontend
- *       paths that could contain the updated content.  This forces Next.js to
- *       regenerate those pages on the next browser request rather than waiting for
- *       the ISR TTL to expire.</li>
+ *       {@code POST {webAppUrl}/api/revalidate?secret=...&path=...} for the frontend
+ *       paths that belong to the changed content type.</li>
  * </ol>
+ *
+ * <h2>Cache eviction by content type</h2>
+ * <ul>
+ *   <li>{@link #evictBlogPost}  — pages, blog-list, blog-highlights, blog-detail, page-list</li>
+ *   <li>{@link #evictProduct}   — pages, product-list (both locales), page-list</li>
+ *   <li>{@link #evictResource}  — pages, resource-list, page-list</li>
+ *   <li>{@link #evictPage}      — pages, page-list</li>
+ * </ul>
+ * Use {@link #evictForPage(Page)} when only a {@link Page} proxy is available; it dispatches
+ * to the correct method via {@code Hibernate.unproxy}.
  *
  * <h2>Fail-open design</h2>
  * Both layers catch and log exceptions without re-throwing.  A Redis failure does not
@@ -41,8 +53,7 @@ import org.springframework.web.client.RestClient;
  *
  * <h2>Async revalidation</h2>
  * Revalidation HTTP calls run in a daemon thread ({@code CompletableFuture.runAsync}).
- * The publish API response returns to the editor immediately; frontend revalidation
- * completes within a few hundred milliseconds in the background.
+ * The publish API response returns to the editor immediately.
  *
  * <h2>Configuration</h2>
  * <pre>
@@ -101,68 +112,91 @@ public class CacheService {
         }
     }
 
+    // ── Type-specific eviction methods ────────────────────────────────────────
+
     /**
-     * Evicts all cache entries related to a content item and triggers Next.js ISR revalidation.
-     *
-     * <p>The method does not know whether {@code slug} belongs to a page, blog post, product,
-     * or resource — it evicts all relevant cache names and revalidates all potential frontend
-     * paths.  Evicting / revalidating a non-existent key is safe and has no side effects.
-     *
-     * @param locale lower-case locale code, e.g. {@code "tr"} or {@code "en"}
-     * @param slug   the content slug, e.g. {@code "kron-pam"} or {@code "my-blog-post"}
+     * Evicts blog-related caches for the given slug/locale and revalidates blog paths.
+     * Does not touch product-list or resource-list.
      */
-    public void evictContent(String locale, String slug) {
-        log.info("content_cache_eviction_started locale={} slug={}", locale, slug);
-        // 1. Evict from Redis cache
-        evictFromCache("pages",         slug + ":" + locale);
-        evictFromCache("blog-list",     locale);
+    public void evictBlogPost(String locale, String slug) {
+        log.info("cache_eviction_started type=blog_post locale={} slug={}", locale, slug);
+        evictFromCache("pages",           slug + ":" + locale);
+        evictFromCache("blog-list",       locale);
         evictFromCache("blog-highlights", locale);
-        evictFromCache("blog-detail",   slug + ":" + locale);
-        evictFromCache("resource-list", locale);
-        // Product list is keyed only by locale; evict both so a corrupt or stale sibling
-        // (e.g. legacy Redis JSON on "tr" while an editor only touches "en") is always cleared.
-        evictFromCache("product-list", "tr");
-        evictFromCache("product-list", "en");
+        evictFromCache("blog-detail",     slug + ":" + locale);
         clearCacheFully("page-list");
-        log.info("content_cache_eviction_finished locale={} slug={}", locale, slug);
-
-        // 2. Trigger Next.js on-demand ISR revalidation (async, non-blocking)
-        List<String> paths = List.of(
-                "/" + locale,                              // homepage (shows recent blog)
-                "/" + locale + "/blog",                    // blog list
-                "/" + locale + "/blog/" + slug,            // blog post detail (if applicable)
-                "/" + locale + "/products",                // product listing
-                "/" + locale + "/products/" + slug,        // product detail (if applicable)
-                "/" + locale + "/resources",               // resources hub
-                "/" + locale + "/resources/" + slug        // resource detail (datasheets, etc.)
-        );
-
-        CompletableFuture.runAsync(() -> {
-                    log.info(
-                            "frontend_revalidation_batch_started locale={} slug={} pathCount={} webAppHost={}",
-                            locale,
-                            slug,
-                            paths.size(),
-                            webAppUrl.isBlank() ? "(none)" : safeHostForLog(webAppUrl));
-                    for (String path : paths) {
-                        revalidateFrontendPath(path);
-                    }
-                    log.info("frontend_revalidation_batch_finished locale={} slug={}", locale, slug);
-                })
-                .exceptionally(ex -> {
-                    log.warn(
-                            "frontend_revalidation_thread_failed locale={} slug={} reason={}",
-                            locale,
-                            slug,
-                            ex.getMessage());
-                    return null;
-                });
+        log.info("cache_eviction_finished type=blog_post locale={} slug={}", locale, slug);
+        revalidateAsync(locale, slug, List.of(
+                "/" + locale,
+                "/" + locale + "/blog",
+                "/" + locale + "/blog/" + slug
+        ));
     }
 
     /**
-     * Evicts public caches for every page row sharing a {@code contentGroupId} (locale variants).
-     * Call after blog/product/page updates so linked translations and locale-switch targets stay fresh.
+     * Evicts product-related caches for the given slug/locale and revalidates product paths.
+     * Both locale variants of product-list are evicted so a stale sibling locale is always cleared.
+     * Does not touch blog or resource caches.
      */
+    public void evictProduct(String locale, String slug) {
+        log.info("cache_eviction_started type=product locale={} slug={}", locale, slug);
+        evictFromCache("pages",        slug + ":" + locale);
+        evictFromCache("product-list", "tr");
+        evictFromCache("product-list", "en");
+        clearCacheFully("page-list");
+        log.info("cache_eviction_finished type=product locale={} slug={}", locale, slug);
+        revalidateAsync(locale, slug, List.of(
+                "/" + locale + "/products",
+                "/" + locale + "/products/" + slug
+        ));
+    }
+
+    /**
+     * Evicts resource-related caches for the given slug/locale and revalidates resource paths.
+     * Does not touch blog or product caches.
+     */
+    public void evictResource(String locale, String slug) {
+        log.info("cache_eviction_started type=resource locale={} slug={}", locale, slug);
+        evictFromCache("pages",         slug + ":" + locale);
+        evictFromCache("resource-list", locale);
+        clearCacheFully("page-list");
+        log.info("cache_eviction_finished type=resource locale={} slug={}", locale, slug);
+        revalidateAsync(locale, slug, List.of(
+                "/" + locale + "/resources",
+                "/" + locale + "/resources/" + slug
+        ));
+    }
+
+    /**
+     * Evicts the generic page cache for the given slug/locale and revalidates the locale root.
+     */
+    public void evictPage(String locale, String slug) {
+        log.info("cache_eviction_started type=page locale={} slug={}", locale, slug);
+        evictFromCache("pages", slug + ":" + locale);
+        clearCacheFully("page-list");
+        log.info("cache_eviction_finished type=page locale={} slug={}", locale, slug);
+        revalidateAsync(locale, slug, List.of("/" + locale));
+    }
+
+    /**
+     * Dispatches to the appropriate type-specific eviction method based on the concrete Page subtype.
+     * Uses Hibernate.unproxy to resolve lazy-loaded proxy instances.
+     */
+    public void evictForPage(Page page) {
+        Page concrete = Hibernate.unproxy(page, Page.class);
+        String locale = page.getLocale().name().toLowerCase();
+        String slug = page.getSlug();
+        if (concrete instanceof BlogPost) {
+            evictBlogPost(locale, slug);
+        } else if (concrete instanceof Product) {
+            evictProduct(locale, slug);
+        } else if (concrete instanceof ResourceItem) {
+            evictResource(locale, slug);
+        } else {
+            evictPage(locale, slug);
+        }
+    }
+
     /**
      * Clears the curated blog sidebar cache and revalidates the blog index for the locale
      * (layout revalidation is triggered from the Next.js route handler for that path).
@@ -189,7 +223,7 @@ public class CacheService {
             List<Page> linked = pageRepository.findByContentGroupId(contentGroupId);
             log.info("content_group_eviction_started groupId={} linkedLocales={}", contentGroupId, linked.size());
             for (Page page : linked) {
-                evictContent(page.getLocale().name().toLowerCase(), page.getSlug());
+                evictForPage(page);
             }
             log.info("content_group_eviction_finished groupId={}", contentGroupId);
         } catch (Exception e) {
@@ -198,6 +232,29 @@ public class CacheService {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private void revalidateAsync(String locale, String slug, List<String> paths) {
+        CompletableFuture.runAsync(() -> {
+                    log.info(
+                            "frontend_revalidation_batch_started locale={} slug={} pathCount={} webAppHost={}",
+                            locale,
+                            slug,
+                            paths.size(),
+                            webAppUrl.isBlank() ? "(none)" : safeHostForLog(webAppUrl));
+                    for (String path : paths) {
+                        revalidateFrontendPath(path);
+                    }
+                    log.info("frontend_revalidation_batch_finished locale={} slug={}", locale, slug);
+                })
+                .exceptionally(ex -> {
+                    log.warn(
+                            "frontend_revalidation_thread_failed locale={} slug={} reason={}",
+                            locale,
+                            slug,
+                            ex.getMessage());
+                    return null;
+                });
+    }
 
     /**
      * Evicts a single key from the named Spring cache.

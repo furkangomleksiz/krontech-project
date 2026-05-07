@@ -97,7 +97,7 @@ public class ResourceAdminService {
         ResourceItem saved = resourceRepository.save(item);
         resourcePdfPreviewService.syncPreviewFromStoredFile(saved);
         ResourceItem persisted = resourceRepository.save(saved);
-        cacheService.evictContent(
+        cacheService.evictResource(
                 persisted.getLocale().name().toLowerCase(Locale.ROOT), persisted.getSlug());
         return toResponse(persisted);
     }
@@ -128,7 +128,7 @@ public class ResourceAdminService {
         ResourceItem saved = resourceRepository.save(item);
         resourcePdfPreviewService.syncPreviewFromStoredFile(saved);
         ResourceItem persisted = resourceRepository.save(saved);
-        cacheService.evictContent(
+        cacheService.evictResource(
                 persisted.getLocale().name().toLowerCase(Locale.ROOT), persisted.getSlug());
         return toResponse(persisted);
     }
@@ -147,7 +147,7 @@ public class ResourceAdminService {
         resourcePdfPreviewService.removePreviewObjectIfPresent(item);
         contentBlockRepository.deleteByPage(item);
         resourceRepository.delete(item);
-        cacheService.evictContent(locale, slug);
+        cacheService.evictResource(locale, slug);
     }
 
     private void validateFileOrUrl(ResourceAdminRequest request) {

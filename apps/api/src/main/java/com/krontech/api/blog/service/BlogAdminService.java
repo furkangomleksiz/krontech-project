@@ -87,7 +87,7 @@ public class BlogAdminService {
             SeoMapper.applyRequest(post.getSeo(), request.seo());
         }
         BlogPost saved = blogPostRepository.save(post);
-        cacheService.evictContent(saved.getLocale().name().toLowerCase(), saved.getSlug());
+        cacheService.evictBlogPost(saved.getLocale().name().toLowerCase(), saved.getSlug());
         cacheService.evictLinkedContentGroup(saved.getContentGroupId());
         auditService.record("CREATE", "BLOG_POST", saved.getId(), saved.getSlug(), null);
         return toResponse(saved);
@@ -121,9 +121,9 @@ public class BlogAdminService {
             SeoMapper.applyRequest(post.getSeo(), request.seo());
         }
         BlogPost saved = blogPostRepository.save(post);
-        cacheService.evictContent(priorLocale.name().toLowerCase(), priorSlug);
+        cacheService.evictBlogPost(priorLocale.name().toLowerCase(), priorSlug);
         if (!priorSlug.equals(saved.getSlug()) || priorLocale != saved.getLocale()) {
-            cacheService.evictContent(saved.getLocale().name().toLowerCase(), saved.getSlug());
+            cacheService.evictBlogPost(saved.getLocale().name().toLowerCase(), saved.getSlug());
         }
         if (priorContentGroupId != null) {
             cacheService.evictLinkedContentGroup(priorContentGroupId);
@@ -140,7 +140,7 @@ public class BlogAdminService {
         BlogPost post = findOrThrow(id);
         SeoMapper.applyRequest(post.getSeo(), request);
         blogPostRepository.save(post);
-        cacheService.evictContent(post.getLocale().name().toLowerCase(), post.getSlug());
+        cacheService.evictBlogPost(post.getLocale().name().toLowerCase(), post.getSlug());
         cacheService.evictLinkedContentGroup(post.getContentGroupId());
         auditService.record("UPDATE", "BLOG_POST", post.getId(), post.getSlug(), "SEO metadata");
     }
@@ -154,7 +154,7 @@ public class BlogAdminService {
         UUID groupId = post.getContentGroupId();
         contentBlockRepository.deleteByPage(post);
         blogPostRepository.delete(post);
-        cacheService.evictContent(locale, slug);
+        cacheService.evictBlogPost(locale, slug);
         cacheService.evictLinkedContentGroup(groupId);
         auditService.record("DELETE", "BLOG_POST", postId, slug, null);
     }

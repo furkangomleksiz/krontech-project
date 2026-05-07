@@ -41,7 +41,7 @@ class PublishingServiceTest {
 
         assertEquals(PublishStatus.PUBLISHED, page.getStatus());
         assertEquals("PUBLISHED", response.status());
-        verify(cacheService).evictContent("en", "home");
+        verify(cacheService).evictForPage(page);
         verify(auditService).record(eq("PUBLISH"), eq("PAGE"), any(), eq("home"), any());
     }
 
@@ -56,7 +56,7 @@ class PublishingServiceTest {
 
         assertEquals(PublishStatus.PUBLISHED, page.getStatus());
         assertEquals("PUBLISHED", response.status());
-        verify(cacheService).evictContent("tr", "about");
+        verify(cacheService).evictForPage(page);
     }
 
     @Test

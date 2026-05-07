@@ -117,7 +117,7 @@ public class ProductAdminService {
             applyResourcesTab(saved, request.resourcesTab());
             replaceResourceLinks(saved, request.resourcesTab().linkedResourceIds());
         }
-        cacheService.evictContent(saved.getLocale().name().toLowerCase(), saved.getSlug());
+        cacheService.evictProduct(saved.getLocale().name().toLowerCase(), saved.getSlug());
         cacheService.evictLinkedContentGroup(saved.getContentGroupId());
         auditService.record("CREATE", "PRODUCT", saved.getId(), saved.getSlug(), null);
         return toResponse(saved);
@@ -157,9 +157,9 @@ public class ProductAdminService {
             applyResourcesTab(saved, request.resourcesTab());
             replaceResourceLinks(saved, request.resourcesTab().linkedResourceIds());
         }
-        cacheService.evictContent(priorLocale.name().toLowerCase(), priorSlug);
+        cacheService.evictProduct(priorLocale.name().toLowerCase(), priorSlug);
         if (!priorSlug.equals(saved.getSlug()) || priorLocale != saved.getLocale()) {
-            cacheService.evictContent(saved.getLocale().name().toLowerCase(), saved.getSlug());
+            cacheService.evictProduct(saved.getLocale().name().toLowerCase(), saved.getSlug());
         }
         if (priorContentGroupId != null) {
             cacheService.evictLinkedContentGroup(priorContentGroupId);
@@ -176,7 +176,7 @@ public class ProductAdminService {
         Product product = findOrThrow(id);
         SeoMapper.applyRequest(product.getSeo(), request);
         productRepository.save(product);
-        cacheService.evictContent(product.getLocale().name().toLowerCase(), product.getSlug());
+        cacheService.evictProduct(product.getLocale().name().toLowerCase(), product.getSlug());
         cacheService.evictLinkedContentGroup(product.getContentGroupId());
         auditService.record("UPDATE", "PRODUCT", product.getId(), product.getSlug(), "SEO metadata");
     }
@@ -192,7 +192,7 @@ public class ProductAdminService {
         deleteTabCardsFor(product);
         contentBlockRepository.deleteByPage(product);
         productRepository.delete(product);
-        cacheService.evictContent(locale, slug);
+        cacheService.evictProduct(locale, slug);
         cacheService.evictLinkedContentGroup(groupId);
         auditService.record("DELETE", "PRODUCT", productId, slug, null);
     }

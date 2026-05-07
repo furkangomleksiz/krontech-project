@@ -90,7 +90,7 @@ class PublishingWorkflowTest {
 
         assertEquals(PublishStatus.DRAFT, page.getStatus());
         assertEquals("DRAFT", response.status());
-        verify(cacheService).evictContent("en", "blog-post-1");
+        verify(cacheService).evictForPage(page);
         verify(auditService).record(eq("UNPUBLISH"), eq("PAGE"), any(), eq("blog-post-1"), any());
     }
 
@@ -104,7 +104,7 @@ class PublishingWorkflowTest {
         service.unpublish(new UnpublishPageRequest(pageId));
 
         assertEquals(PublishStatus.DRAFT, page.getStatus());
-        verify(cacheService).evictContent("tr", "blog-post-2");
+        verify(cacheService).evictForPage(page);
     }
 
     @Test
@@ -168,7 +168,7 @@ class PublishingWorkflowTest {
 
         assertEquals(PublishStatus.PUBLISHED, page.getStatus());
         assertNotNull(page.getPublishedAt());
-        verify(cacheService).evictContent("en", "report-2025");
+        verify(cacheService).evictForPage(page);
         verify(auditService).record(eq("SCHEDULED_PUBLISH"), eq("PAGE"), any(), eq("report-2025"), any());
     }
 

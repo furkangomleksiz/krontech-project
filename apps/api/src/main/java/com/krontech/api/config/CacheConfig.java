@@ -40,10 +40,10 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
  * </pre>
  *
  * <h2>Invalidation</h2>
- * {@link com.krontech.api.publishing.service.CacheService#evictContent} is called on every
- * publish/unpublish transition and evicts all affected cache entries via Spring's
- * {@code CacheManager}. It also triggers asynchronous on-demand ISR revalidation on the
- * Next.js frontend so the browser-visible HTML is refreshed immediately.
+ * {@link com.krontech.api.publishing.service.CacheService} provides type-specific eviction
+ * methods (evictBlogPost, evictProduct, evictResource, evictPage) called on every
+ * publish/unpublish transition. Each method evicts only the caches relevant to the changed
+ * content type and triggers asynchronous on-demand ISR revalidation on the Next.js frontend.
  *
  * <h2>If Redis is unavailable</h2>
  * {@link LenientRedisCacheErrorHandler} ensures {@code @Cacheable} methods still complete

@@ -68,7 +68,7 @@ public class PublicContentService {
     /**
      * Returns the published page for the given slug and locale.
      * Result is cached in Redis for 10 minutes under the {@code pages} cache.
-     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictContent}
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictForPage}
      * on any publish/unpublish transition.
      */
     @Cacheable(value = "pages", key = "#slug + ':' + #locale")
@@ -140,7 +140,7 @@ public class PublicContentService {
      * Returns the published blog post list for the given locale.
      * Only the default page (index 0) response is cached under the {@code blog-list} cache
      * (TTL 10 min). Paginated requests beyond page 0 bypass the cache.
-     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictContent}
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictBlogPost}
      * on any blog post publish/unpublish transition.
      */
     @Cacheable(value = "blog-list", key = "#locale", condition = "#page == 0")
@@ -176,7 +176,7 @@ public class PublicContentService {
     /**
      * Returns the published blog post detail for the given slug and locale.
      * Cached in Redis for 20 minutes under the {@code blog-detail} cache.
-     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictContent}.
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictBlogPost}.
      */
     /**
      * Do not cache synthetic “not published” payloads — otherwise a miss is cached for 20 minutes and

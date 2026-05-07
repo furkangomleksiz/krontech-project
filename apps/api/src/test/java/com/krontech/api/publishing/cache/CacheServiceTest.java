@@ -20,82 +20,159 @@ import org.springframework.web.client.RestClient;
  * Unit tests for CacheService eviction logic.
  *
  * The key behaviors under test:
- *   1. evictContent always evicts from all relevant Spring caches synchronously (and clears {@code page-list}).
- *   2. Frontend revalidation (RestClient) is skipped when secret or URL is blank.
- *   3. A null cache returned by CacheManager (e.g. cache not configured) is handled gracefully.
- *
- * The async revalidation HTTP calls are tested at the "skip" level only — verifying that
- * RestClient is not touched when configuration is absent. Testing the actual HTTP call
- * would require mocking a multi-step RestClient chain and is left to integration tests.
+ *   1. Each type-specific method evicts exactly the caches that belong to that type.
+ *   2. No cross-type eviction — e.g. evictProduct must not touch blog-detail or resource-list.
+ *   3. Frontend revalidation (RestClient) is skipped when secret or URL is blank.
+ *   4. A null cache returned by CacheManager is handled gracefully.
  */
 class CacheServiceTest {
 
-    private final CacheManager cacheManager = mock(CacheManager.class);
-    private final Cache        mockCache    = mock(Cache.class);
-    private final RestClient   restClient   = mock(RestClient.class);
-    private final PageRepository pageRepository = mock(PageRepository.class);
+    private final CacheManager    cacheManager    = mock(CacheManager.class);
+    private final Cache           mockCache       = mock(Cache.class);
+    private final RestClient      restClient      = mock(RestClient.class);
+    private final PageRepository  pageRepository  = mock(PageRepository.class);
 
     @BeforeEach
     void setUp() {
         when(cacheManager.getCache(anyString())).thenReturn(mockCache);
     }
 
-    // ── eviction ─────────────────────────────────────────────────────────────
+    // ── evictBlogPost ─────────────────────────────────────────────────────────
 
     @Test
-    void evictContent_shouldEvictAllRelevantCaches() {
+    void evictBlogPost_shouldEvictBlogCaches() {
         CacheService service = serviceWith("", "");
 
-        service.evictContent("tr", "kron-pam");
+        service.evictBlogPost("tr", "kron-pam");
 
         verify(cacheManager).getCache("pages");
         verify(cacheManager).getCache("blog-list");
         verify(cacheManager).getCache("blog-highlights");
         verify(cacheManager).getCache("blog-detail");
-        verify(cacheManager).getCache("resource-list");
-        verify(cacheManager, times(2)).getCache("product-list");
         verify(cacheManager).getCache("page-list");
 
-        // "kron-pam:tr" is used as the key for both "pages" and "blog-detail" (2 times)
+        // "kron-pam:tr" is the key for both "pages" and "blog-detail"
         verify(mockCache, times(2)).evict("kron-pam:tr");
-        // "tr" is used as the key for "blog-list", "blog-highlights", "resource-list", and "product-list" (4 times)
-        verify(mockCache, times(4)).evict("tr");
-        verify(mockCache, times(1)).evict("en"); // product-list sibling locale
+        // "tr" is the key for "blog-list" and "blog-highlights"
+        verify(mockCache, times(2)).evict("tr");
         verify(mockCache, times(1)).clear();
     }
 
     @Test
-    void evictContent_shouldEvictForEnLocale() {
+    void evictBlogPost_shouldNotTouchProductOrResourceCaches() {
         CacheService service = serviceWith("", "");
 
-        service.evictContent("en", "home");
+        service.evictBlogPost("tr", "kron-pam");
 
+        verify(cacheManager, never()).getCache("product-list");
+        verify(cacheManager, never()).getCache("resource-list");
+    }
+
+    // ── evictProduct ──────────────────────────────────────────────────────────
+
+    @Test
+    void evictProduct_shouldEvictProductCaches() {
+        CacheService service = serviceWith("", "");
+
+        service.evictProduct("tr", "kron-pam");
+
+        verify(cacheManager).getCache("pages");
+        verify(cacheManager, times(2)).getCache("product-list");
         verify(cacheManager).getCache("page-list");
-        verify(mockCache, times(2)).evict("home:en");
-        verify(mockCache, times(4)).evict("en");
-        verify(mockCache, times(1)).evict("tr"); // product-list sibling locale
+
+        verify(mockCache, times(1)).evict("kron-pam:tr");
+        verify(mockCache, times(1)).evict("tr");
+        verify(mockCache, times(1)).evict("en");
         verify(mockCache, times(1)).clear();
+    }
+
+    @Test
+    void evictProduct_shouldNotTouchBlogOrResourceCaches() {
+        CacheService service = serviceWith("", "");
+
+        service.evictProduct("tr", "kron-pam");
+
+        verify(cacheManager, never()).getCache("blog-list");
+        verify(cacheManager, never()).getCache("blog-highlights");
+        verify(cacheManager, never()).getCache("blog-detail");
+        verify(cacheManager, never()).getCache("resource-list");
+    }
+
+    // ── evictResource ─────────────────────────────────────────────────────────
+
+    @Test
+    void evictResource_shouldEvictResourceCaches() {
+        CacheService service = serviceWith("", "");
+
+        service.evictResource("en", "datasheet-2025");
+
+        verify(cacheManager).getCache("pages");
+        verify(cacheManager).getCache("resource-list");
+        verify(cacheManager).getCache("page-list");
+
+        verify(mockCache, times(1)).evict("datasheet-2025:en");
+        verify(mockCache, times(1)).evict("en");
+        verify(mockCache, times(1)).clear();
+    }
+
+    @Test
+    void evictResource_shouldNotTouchBlogOrProductCaches() {
+        CacheService service = serviceWith("", "");
+
+        service.evictResource("en", "datasheet-2025");
+
+        verify(cacheManager, never()).getCache("blog-list");
+        verify(cacheManager, never()).getCache("blog-highlights");
+        verify(cacheManager, never()).getCache("blog-detail");
+        verify(cacheManager, never()).getCache("product-list");
+    }
+
+    // ── evictPage ─────────────────────────────────────────────────────────────
+
+    @Test
+    void evictPage_shouldEvictPageCaches() {
+        CacheService service = serviceWith("", "");
+
+        service.evictPage("en", "home");
+
+        verify(cacheManager).getCache("pages");
+        verify(cacheManager).getCache("page-list");
+
+        verify(mockCache, times(1)).evict("home:en");
+        verify(mockCache, times(1)).clear();
+    }
+
+    @Test
+    void evictPage_shouldNotTouchBlogProductOrResourceCaches() {
+        CacheService service = serviceWith("", "");
+
+        service.evictPage("en", "home");
+
+        verify(cacheManager, never()).getCache("blog-list");
+        verify(cacheManager, never()).getCache("blog-highlights");
+        verify(cacheManager, never()).getCache("blog-detail");
+        verify(cacheManager, never()).getCache("product-list");
+        verify(cacheManager, never()).getCache("resource-list");
     }
 
     // ── revalidation skip logic ───────────────────────────────────────────────
 
     @Test
-    void evictContent_shouldNotCallRestClient_whenRevalidateSecretIsBlank() throws InterruptedException {
+    void evictBlogPost_shouldNotCallRestClient_whenRevalidateSecretIsBlank() throws InterruptedException {
         CacheService service = serviceWith("http://localhost:3000", "");
 
-        service.evictContent("tr", "kron-pam");
+        service.evictBlogPost("tr", "kron-pam");
 
-        // Allow the async task to complete before asserting
         Thread.sleep(150);
 
         verify(restClient, never()).post();
     }
 
     @Test
-    void evictContent_shouldNotCallRestClient_whenWebAppUrlIsBlank() throws InterruptedException {
+    void evictProduct_shouldNotCallRestClient_whenWebAppUrlIsBlank() throws InterruptedException {
         CacheService service = serviceWith("", "some-secret");
 
-        service.evictContent("tr", "kron-pam");
+        service.evictProduct("tr", "kron-pam");
 
         Thread.sleep(150);
 
@@ -103,10 +180,10 @@ class CacheServiceTest {
     }
 
     @Test
-    void evictContent_shouldNotCallRestClient_whenBothConfigValuesAreBlank() throws InterruptedException {
+    void evictResource_shouldNotCallRestClient_whenBothConfigValuesAreBlank() throws InterruptedException {
         CacheService service = serviceWith("", "");
 
-        service.evictContent("tr", "kron-pam");
+        service.evictResource("tr", "kron-pam");
 
         Thread.sleep(150);
 
@@ -116,13 +193,22 @@ class CacheServiceTest {
     // ── null-cache safety ─────────────────────────────────────────────────────
 
     @Test
-    void evictContent_shouldNotThrow_whenCacheManagerReturnsNull() {
+    void evictBlogPost_shouldNotThrow_whenCacheManagerReturnsNull() {
         when(cacheManager.getCache(any())).thenReturn(null);
         CacheService service = serviceWith("", "");
 
-        // Must not throw even when the cache does not exist in the CacheManager
         org.junit.jupiter.api.Assertions.assertDoesNotThrow(
-                () -> service.evictContent("tr", "kron-pam")
+                () -> service.evictBlogPost("tr", "kron-pam")
+        );
+    }
+
+    @Test
+    void evictProduct_shouldNotThrow_whenCacheManagerReturnsNull() {
+        when(cacheManager.getCache(any())).thenReturn(null);
+        CacheService service = serviceWith("", "");
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> service.evictProduct("tr", "kron-pam")
         );
     }
 
