@@ -1,6 +1,6 @@
 package com.krontech.api.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.krontech.api.config.properties.CorsProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -21,12 +21,15 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${app.cors.allowed-origins:http://localhost:3000}")
-    private String allowedOriginsRaw;
+    private final CorsProperties cors;
+
+    public WebConfig(CorsProperties cors) {
+        this.cors = cors;
+    }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        String[] origins = allowedOriginsRaw.split(",\\s*");
+        String[] origins = cors.allowedOrigins().split(",\\s*");
 
         registry.addMapping("/api/**")
                 .allowedOrigins(origins)

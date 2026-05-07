@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.krontech.api.config.properties.WebProperties;
 import com.krontech.api.pages.repository.PageRepository;
 import com.krontech.api.publishing.service.CacheService;
 import org.junit.jupiter.api.BeforeEach;
@@ -129,6 +130,6 @@ class CacheServiceTest {
     // ── helper ────────────────────────────────────────────────────────────────
 
     private CacheService serviceWith(String webAppUrl, String revalidateSecret) {
-        return new CacheService(cacheManager, restClient, pageRepository, webAppUrl, revalidateSecret);
+        return new CacheService(cacheManager, restClient, pageRepository, new WebProperties(webAppUrl, revalidateSecret));
     }
 }

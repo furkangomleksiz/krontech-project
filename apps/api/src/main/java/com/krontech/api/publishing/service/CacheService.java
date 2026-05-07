@@ -1,5 +1,6 @@
 package com.krontech.api.publishing.service;
 
+import com.krontech.api.config.properties.WebProperties;
 import com.krontech.api.pages.entity.Page;
 import com.krontech.api.pages.repository.PageRepository;
 import jakarta.annotation.PostConstruct;
@@ -11,7 +12,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
@@ -71,14 +71,13 @@ public class CacheService {
             CacheManager cacheManager,
             RestClient restClient,
             PageRepository pageRepository,
-            @Value("${app.web.url:}") String webAppUrl,
-            @Value("${app.web.revalidate-secret:}") String revalidateSecret
+            WebProperties web
     ) {
         this.cacheManager = cacheManager;
         this.restClient = restClient;
         this.pageRepository = pageRepository;
-        this.webAppUrl = webAppUrl;
-        this.revalidateSecret = revalidateSecret;
+        this.webAppUrl = web.url() != null ? web.url() : "";
+        this.revalidateSecret = web.revalidateSecret() != null ? web.revalidateSecret() : "";
     }
 
     @PostConstruct

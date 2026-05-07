@@ -7,6 +7,11 @@ logging:
     org.hibernate.orm.jdbc.bind: warn
 
 spring:
+  config:
+    # Reads Docker / Swarm secret files mounted at /run/secrets/ as a property tree.
+    # Each file path maps to a property key (e.g. /run/secrets/app/auth/secret → app.auth.secret).
+    # optional: means the app starts normally when the directory is absent (local dev uses env vars).
+    import: "optional:configtree:/run/secrets/"
   # JWT + stateless security only — disable Spring Boot's default in-memory user (otherwise
   # protected routes return 403 for the dev user instead of 401 when no Bearer token is sent).
   autoconfigure:
@@ -75,8 +80,7 @@ app:
     access-token-minutes: 60
   rate-limit:
     max-requests-per-minute: 120
-  forms:
-    rate-limit:
+    forms:
       # Maximum form submissions per IP address per hour (honeypot bypasses are not counted).
       max-per-hour: ${FORM_RATE_LIMIT_PER_HOUR:5}
   webhook:

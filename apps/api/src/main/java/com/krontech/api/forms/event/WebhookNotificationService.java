@@ -1,9 +1,9 @@
 package com.krontech.api.forms.event;
 
+import com.krontech.api.config.properties.WebhookProperties;
 import com.krontech.api.forms.entity.FormSubmission;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -24,20 +24,23 @@ public class WebhookNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookNotificationService.class);
 
-    @Value("${app.webhook.form-submission.url:}")
-    private String webhookUrl;
+    private final WebhookProperties webhook;
+
+    public WebhookNotificationService(WebhookProperties webhook) {
+        this.webhook = webhook;
+    }
 
     @EventListener
     public void onFormSubmission(FormSubmissionCreatedEvent event) {
         FormSubmission s = event.getSubmission();
 
-        if (webhookUrl == null || webhookUrl.isBlank()) {
+        if (webhook.url() == null || webhook.url().isBlank()) {
             log.info("form_submission_received id={} type={} email={} company={} source={}",
                     s.getId(), s.getFormType(), s.getEmail(), s.getCompany(), s.getSourcePage());
             return;
         }
 
-        // TODO: POST to webhookUrl with JSON body:
+        // TODO: POST to webhook.url() with JSON body:
         // {
         //   "id": "<uuid>",
         //   "formType": "CONTACT",
@@ -51,6 +54,6 @@ public class WebhookNotificationService {
         //   "sourcePage": "...",
         //   "submittedAt": "<ISO-8601>"
         // }
-        log.info("form_submission_webhook_pending id={} url={}", s.getId(), webhookUrl);
+        log.info("form_submission_webhook_pending id={} url={}", s.getId(), webhook.url());
     }
 }

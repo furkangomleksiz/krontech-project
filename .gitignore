@@ -15,6 +15,9 @@ Thumbs.db
 apps/web/.env.local
 apps/api/.env
 
+# Docker secrets directory — contains plaintext secret values, must never be committed
+secrets/
+
 apps/api/target
 # TypeScript
 *.tsbuildinfo

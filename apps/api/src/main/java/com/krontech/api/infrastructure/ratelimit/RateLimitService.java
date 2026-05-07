@@ -1,10 +1,10 @@
 package com.krontech.api.infrastructure.ratelimit;
 
+import com.krontech.api.config.properties.RateLimitProperties;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -16,14 +16,10 @@ public class RateLimitService {
     private final int maxFormSubmissionsPerHour;
     private final Map<String, AtomicInteger> fallbackCounters = new ConcurrentHashMap<>();
 
-    public RateLimitService(
-            StringRedisTemplate redisTemplate,
-            @Value("${app.rate-limit.max-requests-per-minute}") int maxRequestsPerMinute,
-            @Value("${app.forms.rate-limit.max-per-hour:5}") int maxFormSubmissionsPerHour
-    ) {
+    public RateLimitService(StringRedisTemplate redisTemplate, RateLimitProperties rateLimitProps) {
         this.redisTemplate = redisTemplate;
-        this.maxRequestsPerMinute = maxRequestsPerMinute;
-        this.maxFormSubmissionsPerHour = maxFormSubmissionsPerHour;
+        this.maxRequestsPerMinute = rateLimitProps.maxRequestsPerMinute();
+        this.maxFormSubmissionsPerHour = rateLimitProps.forms().maxPerHour();
     }
 
     /** General per-IP:URI limit used by {@link RateLimitFilter}. */
@@ -44,7 +40,7 @@ public class RateLimitService {
     }
 
     /**
-     * Form-specific limit: at most {@code app.forms.rate-limit.max-per-hour} (default 5)
+     * Form-specific limit: at most {@code app.rate-limit.forms.max-per-hour} (default 5)
      * submissions per IP address per hour.
      * Fails open if Redis is unavailable so a Redis outage does not block all form traffic.
      */

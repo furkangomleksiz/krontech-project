@@ -1,5 +1,6 @@
 package com.krontech.api.auth.service;
 
+import com.krontech.api.config.properties.AuthProperties;
 import com.krontech.api.users.entity.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -8,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,14 +18,10 @@ public class JwtService {
     private final String issuer;
     private final long tokenMinutes;
 
-    public JwtService(
-            @Value("${app.auth.secret}") String secret,
-            @Value("${app.auth.issuer}") String issuer,
-            @Value("${app.auth.access-token-minutes}") long tokenMinutes
-    ) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.issuer = issuer;
-        this.tokenMinutes = tokenMinutes;
+    public JwtService(AuthProperties auth) {
+        this.secretKey = Keys.hmacShaKeyFor(auth.secret().getBytes(StandardCharsets.UTF_8));
+        this.issuer = auth.issuer();
+        this.tokenMinutes = auth.accessTokenMinutes();
     }
 
     public String generateToken(String subject, UserRole role) {

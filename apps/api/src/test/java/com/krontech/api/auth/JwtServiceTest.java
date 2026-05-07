@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.krontech.api.auth.service.JwtService;
+import com.krontech.api.config.properties.AuthProperties;
 import com.krontech.api.users.entity.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -30,7 +31,7 @@ class JwtServiceTest {
     private static final String ISSUER = "test-issuer";
 
     private JwtService jwt(long tokenMinutes) {
-        return new JwtService(SECRET, ISSUER, tokenMinutes);
+        return new JwtService(new AuthProperties(SECRET, ISSUER, tokenMinutes));
     }
 
     // ── generation & parsing ─────────────────────────────────────────────────
@@ -69,7 +70,7 @@ class JwtServiceTest {
     @Test
     void parseClaims_shouldThrowSignatureException_whenTokenSignedWithDifferentSecret() {
         JwtService signer   = jwt(60);
-        JwtService verifier = new JwtService("completely-different-secret-that-is-32-chars!!", ISSUER, 60);
+        JwtService verifier = new JwtService(new AuthProperties("completely-different-secret-that-is-32-chars!!", ISSUER, 60));
 
         String token = signer.generateToken("user@example.com", UserRole.EDITOR);
 

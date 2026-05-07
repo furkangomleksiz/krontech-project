@@ -13,6 +13,7 @@ import com.krontech.api.auth.dto.LoginRequest;
 import com.krontech.api.auth.dto.TokenResponse;
 import com.krontech.api.auth.service.AuthService;
 import com.krontech.api.auth.service.JwtService;
+import com.krontech.api.config.properties.AuthProperties;
 import com.krontech.api.users.entity.UserAccount;
 import com.krontech.api.users.entity.UserRole;
 import com.krontech.api.users.repository.UserAccountRepository;
@@ -36,7 +37,7 @@ class AuthServiceTest {
 
     private final UserAccountRepository repo     = mock(UserAccountRepository.class);
     private final PasswordEncoder        encoder  = new BCryptPasswordEncoder();
-    private final JwtService             jwt      = new JwtService(JWT_SECRET, "test", 60);
+    private final JwtService             jwt      = new JwtService(new AuthProperties(JWT_SECRET, "test", 60));
     private final AuthService            service  = new AuthService(repo, encoder, jwt);
 
     // ── login — happy path ───────────────────────────────────────────────────

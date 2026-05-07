@@ -1,5 +1,6 @@
 package com.krontech.api.media.service;
 
+import com.krontech.api.config.properties.StorageProperties;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,7 +9,6 @@ import java.net.URI;
 import software.amazon.awssdk.core.ResponseInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -58,28 +58,20 @@ public class S3CompatibleObjectStorageClient implements ObjectStorageClient {
     private final String bucket;
     private final String publicEndpoint;
 
-    public S3CompatibleObjectStorageClient(
-            @Value("${app.storage.endpoint:http://localhost:9000}") String endpoint,
-            @Value("${app.storage.bucket:media}") String bucket,
-            @Value("${app.storage.access-key:minio}") String accessKey,
-            @Value("${app.storage.secret-key:minio123}") String secretKey,
-            @Value("${app.storage.region:us-east-1}") String region,
-            @Value("${app.storage.force-path-style:true}") boolean forcePathStyle,
-            // Public endpoint defaults to the same as the internal endpoint.
-            // Override with a CDN URL in production (e.g. https://cdn.krontech.com.tr).
-            @Value("${app.storage.public-endpoint:}") String publicEndpointOverride
-    ) {
-        this.bucket = bucket;
-        this.publicEndpoint = publicEndpointOverride.isBlank() ? endpoint : publicEndpointOverride;
+    public S3CompatibleObjectStorageClient(StorageProperties storage) {
+        this.bucket = storage.bucket();
+        this.publicEndpoint = (storage.publicEndpoint() == null || storage.publicEndpoint().isBlank())
+                ? storage.endpoint()
+                : storage.publicEndpoint();
 
         this.s3Client = S3Client.builder()
-                .endpointOverride(URI.create(endpoint))
+                .endpointOverride(URI.create(storage.endpoint()))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)
+                        AwsBasicCredentials.create(storage.accessKey(), storage.secretKey())
                 ))
-                .region(Region.of(region))
+                .region(Region.of(storage.region()))
                 .serviceConfiguration(S3Configuration.builder()
-                        .pathStyleAccessEnabled(forcePathStyle)
+                        .pathStyleAccessEnabled(storage.forcePathStyle())
                         .build())
                 .build();
     }
