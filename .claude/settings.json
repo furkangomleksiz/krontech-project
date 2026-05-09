@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\furka\\\\Documents\\\\Projects\\\\krontech-project\\\\nginx\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\furka\\Documents\\Projects\\krontech-project"
     ]
   }
 }

@@ -101,7 +101,7 @@ services:
       S3_FORCE_PATH_STYLE: "true"
       JWT_SECRET: ${JWT_SECRET:-replace_with_a_long_random_secret}
       JWT_ISSUER: ${JWT_ISSUER:-krontech-api}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost}
       # Backend → Next.js on-demand revalidation (same Docker network).
       WEB_APP_URL: http://web:3000
       # Non-empty default so publish/unpublish purges Next ISR without a local .env file.
@@ -123,7 +123,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost}
         NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-tr}
         NEXT_PUBLIC_SUPPORTED_LOCALES: ${NEXT_PUBLIC_SUPPORTED_LOCALES:-tr,en}
         # Host browser → API (published port). Override if API_HOST_PORT differs from 8080.
@@ -133,15 +133,26 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    ports:
-      - "${WEB_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-local-compose-revalidate-secret}
       # Runtime override for server/middleware (defaults match Dockerfile).
       API_INTERNAL_BASE_URL: ${API_INTERNAL_BASE_URL:-http://api:8080/api/v1}
 
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: krontech-nginx
+    depends_on:
+      web:
+        condition: service_started
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx_cache:/var/cache/nginx
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  nginx_cache:

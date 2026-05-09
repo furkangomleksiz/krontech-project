@@ -61,6 +61,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // s-maxage tells the Nginx proxy cache (and any real CDN) how long to cache
+        // public pages. The 60s TTL is intentionally short — ISR on-demand revalidation
+        // handles freshness; Nginx only needs to absorb concurrent traffic spikes.
+        source: "/(tr|en)(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=30" },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           // Prevent MIME type sniffing
