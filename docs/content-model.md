@@ -79,7 +79,38 @@ Extends `Page`. Discriminator value: `PRODUCT`.
 
 | Column | Type | Notes |
 |---|---|---|
-| `highlights` | TEXT | Feature list or capability description; unbounded |
+| `highlights` | TEXT | Free-form feature list; parsed into `featureBullets` (max 3) for the listing card |
+| `resourcesIntroTitle` | VARCHAR(500) | Heading for the wide intro card on the Resources tab; nullable |
+| `resourcesIntroBody` | TEXT | Body text for the Resources tab intro card; nullable |
+| `resourcesIntroImageKey` | VARCHAR(500) | S3 objectKey for the Resources tab intro image; nullable |
+| `resourcesIntroImageAlt` | VARCHAR(500) | Alt text for the Resources tab intro image; nullable |
+
+Tab-specific card content (Solution, How It Works, Key Benefits, Resources) lives in `product_tab_cards`, not in this table.
+
+---
+
+### `ProductTabCard` (table: `product_tab_cards`)
+
+Cards displayed inside the four fixed tabs on a product detail page. Not a `Page` subclass — extends `BaseEntity` directly and links to `products` via FK.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | Inherited from `BaseEntity` |
+| `product_id` | UUID FK → `products.id` | `@ManyToOne`, not nullable |
+| `tab` | ENUM | `SOLUTION`, `HOW_IT_WORKS`, `KEY_BENEFITS`, `RESOURCES` |
+| `sort_order` | INT | Display order within the tab |
+| `title` | VARCHAR(500) | Card heading; not nullable |
+| `body` | TEXT | Card body text; not nullable |
+| `imageObjectKey` | VARCHAR(500) | S3 objectKey for card image; nullable |
+| `imageAlt` | VARCHAR(500) | Alt text; nullable (falls back to catalog alt on the `MediaAsset`) |
+
+**Unique constraint:** `(product_id, tab, sort_order)` — enforces one card per position per tab.
+
+**Index:** `product_id` for fast per-product lookups.
+
+The `RESOURCES` tab cards are managed separately from `resourcesIntroTitle/Body/ImageKey` — the intro card is a wide banner stored on the `products` row; the tab cards below it are rows here.
+
+API value mapping for `tab`: `SOLUTION → "solution"`, `HOW_IT_WORKS → "how_it_works"`, `KEY_BENEFITS → "key_benefits"`, `RESOURCES → "resources"`.
 
 ---
 
@@ -238,8 +269,19 @@ Blog detail does not include blocks — the `body` field carries the full articl
 
 **`ProductResponse`** (product detail):
 ```
-{ slug, locale, title, summary, highlights, heroImageUrl, seo: { ... }, blocks: [ ... ] }
+{ slug, locale, title, summary, highlights, heroImageUrl,
+  seo: { ... },
+  detailTabs: [
+    { tab: "solution"|"how_it_works"|"key_benefits"|"resources",
+      cards: [ { sortOrder, title, body, imageUrl, imageAlt } ] }
+  ],
+  resourcesIntro: { title, body, imageUrl, imageAlt } | null,
+  linkedResources: [ ResourceResponse, ... ],
+  blocks: [ { blockType, sortOrder, payloadJson } ]
+}
 ```
+
+`detailTabs` always contains all four tabs in declaration order; tabs with no cards return an empty `cards` array. `blocks` carries generic layout blocks (hero, text, split-cta, etc.) that compose the page around the tab section. `imageUrl` values in `detailTabs` and `resourcesIntro` are resolved at serve time via `ObjectStorageClient`.
 
 **`ResourceResponse`** (resource list item):
 ```
