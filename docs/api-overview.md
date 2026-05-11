@@ -145,9 +145,9 @@ Set `objectKey` as `heroImageKey` on any content record to reference this asset.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/v1/admin/publishing/publish` | EDITOR + ADMIN | DRAFT or SCHEDULED → PUBLISHED; `CacheService` eviction + async Next.js revalidation when configured |
-| POST | `/api/v1/admin/publishing/schedule` | EDITOR + ADMIN | DRAFT → SCHEDULED (`scheduledAt` in the future) |
-| POST | `/api/v1/admin/publishing/unpublish` | EDITOR + ADMIN | PUBLISHED or SCHEDULED → DRAFT |
+| POST | `/api/v1/admin/publishing/publish` | EDITOR + ADMIN | Body: `{ "pageId": "<uuid>" }`. DRAFT or SCHEDULED → PUBLISHED; type-specific `CacheService` eviction + async Next.js revalidation when configured |
+| POST | `/api/v1/admin/publishing/schedule` | EDITOR + ADMIN | Body: `{ "pageId": "<uuid>", "scheduledAt": "<ISO instant>" }`. DRAFT → SCHEDULED (`scheduledAt` must be a future instant) |
+| POST | `/api/v1/admin/publishing/unpublish` | EDITOR + ADMIN | Body: `{ "pageId": "<uuid>" }`. PUBLISHED or SCHEDULED → DRAFT |
 | POST | `/api/v1/admin/publishing/pages/{id}/preview-token` | EDITOR + ADMIN | Rotates `previewToken` for draft preview links |
 
 ## Admin — Audit (read-only, EDITOR + ADMIN)

@@ -44,6 +44,12 @@ site responds with a 404 at that URL, the indexed ranking is lost.
 Browser request
   │
   ▼
+Nginx (port 80)
+  ├─ 301/302 redirect responses from Next.js are NOT cached by Nginx
+  │    (proxy_cache_valid only applies to 200 responses)
+  └─ Passes request through to Next.js
+              │
+              ▼
 Next.js Edge Middleware (src/middleware.ts)
   ├─ "/"  →  301 → "/tr"  (root → default locale, always)
   ├─ Check in-memory cache (5-min TTL)
@@ -79,9 +85,11 @@ Set `SeoMetadata.canonicalPath` explicitly when:
   canonical set to the new preferred URL
 
 ### Thin duplicate-URL protection
-The `(slug, locale)` unique constraint on the `pages` table prevents two active records
-from sharing the same URL. The SEO layer still emits explicit canonical tags because
-canonicalization is a separate concern from uniqueness.
+The `(slug, locale, dtype)` unique constraint on the `pages` table prevents two records of
+the same content type from sharing the same URL. Different content types may reuse the same
+slug under the same locale — the constraint does not protect against that case, which is
+intentional. The SEO layer still emits explicit canonical tags because canonicalization is
+a separate concern from uniqueness.
 
 ---
 
@@ -182,10 +190,12 @@ Search engines treat these as linked locale variants, not duplicate content.
   a prefix match, but this adds complexity and risks over-matching. For a typical B2B
   site with a bounded URL set, explicit rules are safer.
 
-- **Server-side redirect caching at the CDN layer**: This is the ideal long-term
-  architecture (Nginx / CloudFront redirects before hitting Next.js at all). The
-  middleware approach is correct for the current stage and can be replaced with a CDN
-  rule set once the redirect list stabilizes.
+- **Redirect caching at the proxy layer**: Nginx is now in front of Next.js and caches
+  public page responses (200s) for 60 s. However, redirect responses (301/302) are not
+  cached by Nginx (`proxy_cache_valid 200 1m` — 200 only), so redirect resolution still
+  runs through Next.js middleware on every request. Moving the redirect rule list into
+  Nginx `map` directives would eliminate that hop, but is out of scope until the redirect
+  list stabilizes post-migration.
 
 - **410 Gone**: The current model supports 301/302 only. If a page is removed with no
   replacement, add a `noIndex: true` flag to the content record and set the canonical

@@ -5,7 +5,8 @@
 - `apps/web`: Next.js App Router frontend for public pages
 - `apps/api`: Spring Boot modular monolith API
 - `docs`: technical decisions and operating notes
-- root `docker-compose.yml`: PostgreSQL, Redis, MinIO (+ bucket init), Spring Boot API, Next.js web (see root `README.md` for full-stack vs infra-only workflows)
+- root `docker-compose.yml`: PostgreSQL, Redis, MinIO (+ bucket init), Spring Boot API, Next.js web, Nginx reverse proxy (see root `README.md` for full-stack vs infra-only workflows)
+- `nginx/nginx.conf`: reverse-proxy config — static asset caching, public page caching (60 s), admin/API passthrough
 
 ## Backend style: modular monolith
 
@@ -128,13 +129,19 @@ See [`docs/seo-migration.md`](./seo-migration.md) for the full migration playboo
 Every public request
   │
   ▼
+Nginx (port 80)
+  ├─ /_next/static/**  →  proxy + cache forever (content-addressed)
+  ├─ /admin/** or /api/**  →  proxy, no cache
+  └─ /**  →  proxy + 60 s public page cache (only 200 responses)
+              │
+              ▼
 Next.js Edge Middleware (src/middleware.ts)
   ├─ "/"  →  301 → "/tr"          (root always redirects to default locale)
   ├─ Rule cache warm?
   │      ├─ yes: scan in-memory rule list
   │      └─ no:  fetch GET /api/v1/public/redirects, cache 5 min
-  ├─ Rule matched  →  301/302 to targetPath  (before any rendering)
-  └─ No match     →  set x-locale header, pass through
+  ├─ Rule matched  →  301/302 to targetPath  (301/302 not cached by Nginx)
+  └─ No match     →  set x-locale header, pass through to page rendering
 ```
 
 Rules stored in `redirect_rules` (PostgreSQL) are managed via `/admin/redirects`.
@@ -145,8 +152,10 @@ server to flush the cache immediately (e.g. on migration day).
 
 - Every published page has an explicit `<link rel="canonical">` derived from `SeoMetadata.canonicalPath`.
 - Locale variants are linked via `hreflang` alternates (TR + EN + x-default).
-- The `(slug, locale)` unique constraint on `pages` prevents two active records from
-  sharing the same URL, eliminating accidental duplicate content at the data layer.
+- The `(slug, locale, dtype)` unique constraint on `pages` prevents two records of the
+  same content type from sharing the same URL, eliminating accidental duplicate content
+  at the data layer. Different content types (e.g. a product and a blog post) may reuse
+  the same slug under the same locale.
 
 ## Media and object storage
 

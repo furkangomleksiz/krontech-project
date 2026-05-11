@@ -2,14 +2,18 @@
 
 ## Overview
 
-Three independent cache layers protect the public site. They are ordered from fastest
+Four independent cache layers protect the public site. They are ordered from fastest
 (closest to the user) to slowest, and each has a clear invalidation path.
 
 ```
 Browser request
   │
-  ├─ CDN/Reverse proxy (future — not in current stack)
-  │     Cache-Control headers set by Next.js
+  ├─ Nginx reverse proxy  (shared, in Docker / cloud)
+  │     Static assets (/_next/static/**): cached for 365 days (content-addressed)
+  │     Public pages (/**): 60 s proxy cache with stale-while-revalidate
+  │     Admin + API routes (/admin/**, /api/**): always bypassed (no cache)
+  │     Invalidation: TTL expiry only; publish invalidates Next.js ISR first,
+  │       Nginx picks up the fresh response on the next request after its 60 s TTL
   │
   ├─ Next.js ISR cache  (in-process, per worker)
   │     HTML pages cached per URL with stale-while-revalidate
@@ -139,11 +143,23 @@ storm on the first deploy.  Flush Redis on deployment if DTOs change.
 
 ### Eviction on publish/unpublish
 
-`CacheService.evictContent(locale, slug)` evicts the Spring caches documented in
-`publishing-flow.md` (not a fixed count of four — includes e.g. `blog-highlights`, both
-`product-list` keys, and a full `page-list` clear). If Redis is unavailable, the eviction is
-logged as a warning and the publish succeeds anyway — the next API request will re-populate
-the cache from PostgreSQL.
+`CacheService.evictForPage(page)` dispatches to the correct type-specific eviction method
+based on the runtime type of the `Page` entity (resolved via `Hibernate.unproxy`):
+
+| Method | Caches evicted |
+|---|---|
+| `evictBlogPost(locale, slug)` | `pages`, `blog-list`, `blog-highlights`, `blog-detail`, full `page-list` clear |
+| `evictProduct(locale, slug)` | `pages`, `product-list` (both locales), full `page-list` clear |
+| `evictResource(locale, slug)` | `pages`, `resource-list`, full `page-list` clear |
+| `evictPage(locale, slug)` | `pages`, full `page-list` clear |
+
+Evicting only the caches relevant to the changed content type avoids spurious cache misses
+on unrelated content. Because the uniqueness constraint is now per `(slug, locale, dtype)`, a
+slug shared across dtypes would previously have caused cross-type eviction — this is now
+prevented by type-specific dispatch.
+
+If Redis is unavailable, the eviction is logged as a warning and the publish succeeds anyway —
+the next API request will re-populate the cache from PostgreSQL.
 
 ---
 
@@ -233,8 +249,11 @@ to avoid hammering an unavailable API.
 
 | Event | Spring/Redis (see `CacheService`) | Next.js paths revalidated |
 |---|---|---|
-| Page published or unpublished | `pages`, `blog-list`, `blog-highlights`, `blog-detail`, `resource-list`, `product-list` (both locales), and full `page-list` clear for the given `slug`+`locale` keys | `/{locale}`, `/{locale}/blog`, `/{locale}/blog/{slug}`, `/{locale}/products`, `/{locale}/products/{slug}`, `/{locale}/resources`, `/{locale}/resources/{slug}` |
-| Linked locale group updated | `evictLinkedContentGroup` → repeat `evictContent` for each linked row | Same pattern per evicted item |
+| Blog post published or unpublished | `pages`, `blog-list`, `blog-highlights`, `blog-detail`, full `page-list` clear | `/{locale}`, `/{locale}/blog`, `/{locale}/blog/{slug}` |
+| Product published or unpublished | `pages`, `product-list` (both locales), full `page-list` clear | `/{locale}/products`, `/{locale}/products/{slug}` |
+| Resource published or unpublished | `pages`, `resource-list`, full `page-list` clear | `/{locale}/resources`, `/{locale}/resources/{slug}` |
+| Generic page published or unpublished | `pages`, full `page-list` clear | `/{locale}`, `/{locale}/{slug}` |
+| Linked locale group updated | `evictLinkedContentGroup` → `evictForPage` for each linked row | Same type-specific paths per evicted item |
 | Blog highlights-only touch | `blog-highlights` + blog index path | `/{locale}/blog` |
 | Redirect rule changed | N/A (not in Redis page cache) | Next.js restart or 5-min middleware TTL |
 
@@ -242,10 +261,13 @@ to avoid hammering an unavailable API.
 
 ## First-pass limits (acknowledged)
 
-- **CDN integration** is not in the current stack. When a CDN (CloudFront, Cloudflare) is
-  added, add `Cache-Control: s-maxage=3600, stale-while-revalidate` headers to public
-  page routes and wire CDN cache invalidation (tag-based or URL purge) alongside
-  `revalidatePath()`.
+- **Nginx cache invalidation on publish** — Nginx caches public pages for 60 s. On-demand
+  revalidation flushes Next.js ISR first; Nginx will serve stale content for up to 60 s
+  after a publish before its TTL expires. For a B2B marketing site this is acceptable.
+  An active purge (`proxy_cache_purge`) would eliminate the residual window if needed.
+- **External CDN** — Nginx covers the current single-host deployment. For a multi-region
+  or high-traffic scenario, add CloudFront or Cloudflare in front of Nginx and wire
+  CDN cache invalidation alongside `revalidatePath()`.
 - **Fine-grained cache tag invalidation** — `revalidateTag()` would allow more targeted
   invalidation (e.g. only invalidate pages that embed a specific blog post). Deferred.
 - **Redis cluster / sentinel** — single Redis instance is appropriate for this stage.

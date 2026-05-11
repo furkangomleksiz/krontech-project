@@ -40,7 +40,7 @@ Base record for every content page. Subclasses add type-specific fields via JOIN
 | `createdAt` | TIMESTAMP | Inherited |
 | `updatedAt` | TIMESTAMP | Inherited |
 
-**Unique constraint:** `(slug, locale)` — enforces one active record per URL per locale.
+**Unique constraint:** `(slug, locale, dtype)` — enforces one active record per URL per locale per content type. Two different content types (e.g. a product and a blog post) may share the same slug and locale combination.
 
 ---
 

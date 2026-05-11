@@ -47,7 +47,7 @@ Every endpoint returns a `PublishStateResponse` showing the resulting state.
 POST /api/v1/admin/publishing/publish
 Content-Type: application/json
 
-{ "slug": "secure-access-gateway", "locale": "en" }
+{ "pageId": "b3a1c2d4-e5f6-..." }
 ```
 
 Response `200 OK`:
@@ -69,8 +69,7 @@ POST /api/v1/admin/publishing/schedule
 Content-Type: application/json
 
 {
-  "slug": "kronos-announcement",
-  "locale": "tr",
+  "pageId": "b3a1c2d4-e5f6-...",
   "scheduledAt": "2026-05-01T09:00:00Z"
 }
 ```
@@ -83,7 +82,7 @@ Content-Type: application/json
 POST /api/v1/admin/publishing/unpublish
 Content-Type: application/json
 
-{ "slug": "old-blog-post", "locale": "en" }
+{ "pageId": "b3a1c2d4-e5f6-..." }
 ```
 
 Evicts the content from cache immediately so the page is no longer served publicly.
@@ -158,21 +157,18 @@ promotion loop to avoid double-promotion races. For a single-instance deployment
 
 ## Cache invalidation
 
-`CacheService.evictContent(locale, slug)` runs on every successful `publish`, `unpublish`, or
-scheduled auto-publish. It evicts keys from the Spring `CacheManager` caches (backed by Redis when
-enabled):
+`CacheService.evictForPage(page)` runs on every successful `publish`, `unpublish`, or scheduled
+auto-publish. It resolves the runtime entity type via `Hibernate.unproxy` and dispatches to the
+appropriate type-specific method, evicting only the caches relevant to that content type:
 
-| Spring cache name   | Key (conceptual)     | Notes |
-|---------------------|----------------------|--------|
-| `pages`             | `{slug}:{locale}`    | Generic published pages by slug |
-| `blog-list`         | `{locale}`           | First page of blog list only is cached in `PublicContentService` |
-| `blog-highlights`   | `{locale}`           | Sidebar / highlight strip |
-| `blog-detail`       | `{slug}:{locale}`    | |
-| `resource-list`     | `{locale}`           | Name is evicted for forward compatibility; list endpoint is not yet `@Cacheable` |
-| `product-list`      | `tr` and `en`        | Both locales evicted on any content change |
-| `page-list`         | —                    | Entire cache cleared (`clear()`) because keys include limit |
+| Entity type   | Method called        | Spring caches evicted |
+|---------------|----------------------|-----------------------|
+| `BlogPost`    | `evictBlogPost`      | `pages` (`{slug}:{locale}`), `blog-list` (`{locale}`), `blog-highlights` (`{locale}`), `blog-detail` (`{slug}:{locale}`), full `page-list` clear |
+| `Product`     | `evictProduct`       | `pages` (`{slug}:{locale}`), `product-list` (`tr` and `en`), full `page-list` clear |
+| `ResourceItem`| `evictResource`      | `pages` (`{slug}:{locale}`), `resource-list` (`{locale}`), full `page-list` clear |
+| `Page`        | `evictPage`          | `pages` (`{slug}:{locale}`), full `page-list` clear |
 
-`evictLinkedContentGroup(contentGroupId)` then calls `evictContent` for every linked locale variant so
+`evictLinkedContentGroup(contentGroupId)` then calls `evictForPage` for every linked locale variant so
 translations and locale switching stay consistent.
 
 On publish, the service also enqueues async `POST` calls to the Next.js `/api/revalidate` route
