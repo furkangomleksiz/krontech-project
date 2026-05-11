@@ -1,5 +1,6 @@
 package com.krontech.api.products;
 
+import com.krontech.api.media.repository.MediaAssetRepository;
 import com.krontech.api.media.service.ObjectStorageClient;
 import com.krontech.api.products.dto.ProductDetailTabSectionResponse;
 import com.krontech.api.products.dto.ProductTabCardAdminItem;
@@ -9,8 +10,11 @@ import com.krontech.api.products.entity.ProductTabCard;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class ProductTabCardPresentation {
 
@@ -24,8 +28,22 @@ public final class ProductTabCardPresentation {
     public static List<ProductDetailTabSectionResponse> toPublicSections(
             List<ProductTabCard> cards,
             ObjectStorageClient objectStorageClient,
+            MediaAssetRepository mediaAssetRepository,
             boolean omitResourcesTabCards
     ) {
+        Set<String> keysNeedingAlt = cards.stream()
+                .filter(c -> c.getImageAlt() == null && c.getImageObjectKey() != null)
+                .map(ProductTabCard::getImageObjectKey)
+                .collect(Collectors.toSet());
+        Map<String, String> mediaAltByKey = new HashMap<>();
+        if (!keysNeedingAlt.isEmpty()) {
+            mediaAssetRepository.findAllByObjectKeyIn(keysNeedingAlt).forEach(a -> {
+                if (a.getAltText() != null && !a.getAltText().isBlank()) {
+                    mediaAltByKey.put(a.getObjectKey(), a.getAltText());
+                }
+            });
+        }
+
         Map<ProductDetailTab, List<ProductTabCard>> byTab = new EnumMap<>(ProductDetailTab.class);
         for (ProductDetailTab tab : ProductDetailTab.values()) {
             byTab.put(tab, new ArrayList<>());
@@ -45,12 +63,15 @@ public final class ProductTabCardPresentation {
                 String imageUrl = c.getImageObjectKey() != null
                         ? objectStorageClient.buildPublicUrl(c.getImageObjectKey())
                         : null;
+                String imageAlt = c.getImageAlt() != null
+                        ? c.getImageAlt()
+                        : mediaAltByKey.get(c.getImageObjectKey());
                 items.add(new ProductTabCardPublicItem(
                         c.getSortOrder(),
                         c.getTitle(),
                         c.getBody(),
                         imageUrl,
-                        c.getImageAlt()
+                        imageAlt
                 ));
             }
             out.add(new ProductDetailTabSectionResponse(tab.apiValue(), items));

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.krontech.api.media.repository.MediaAssetRepository;
 import com.krontech.api.media.service.ObjectStorageClient;
 import com.krontech.api.products.dto.ProductDetailTabSectionResponse;
 import java.util.List;
@@ -16,9 +17,10 @@ class ProductTabCardPresentationTest {
     void toPublicSections_emptyCards_returnsFourTabsInDisplayOrder() {
         ObjectStorageClient urls = mock(ObjectStorageClient.class);
         when(urls.buildPublicUrl(anyString())).thenAnswer(inv -> "https://cdn.test/" + inv.getArgument(0));
+        MediaAssetRepository mediaAssets = mock(MediaAssetRepository.class);
 
         List<ProductDetailTabSectionResponse> sections =
-                ProductTabCardPresentation.toPublicSections(List.of(), urls, false);
+                ProductTabCardPresentation.toPublicSections(List.of(), urls, mediaAssets, false);
 
         assertEquals(4, sections.size());
         assertEquals("solution", sections.get(0).tab());

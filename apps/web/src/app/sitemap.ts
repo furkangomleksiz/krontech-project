@@ -27,7 +27,7 @@ function alternateRefs(path: string): Array<{ href: string; hreflang: string }> 
     hreflang: l as string,
   }));
   // x-default points to the Turkish (default) locale
-  refs.push({ href: `${siteUrl}/tr${path}`, hreflang: "x-default" });
+  refs.push({ href: `${siteUrl}/tr${path}`, hreflang: "x-defau lt" });
   return refs;
 }
 

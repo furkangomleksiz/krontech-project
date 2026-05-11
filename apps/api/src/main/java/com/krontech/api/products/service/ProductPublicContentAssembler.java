@@ -1,5 +1,6 @@
 package com.krontech.api.products.service;
 
+import com.krontech.api.media.repository.MediaAssetRepository;
 import com.krontech.api.media.service.ObjectStorageClient;
 import com.krontech.api.products.ProductTabCardPresentation;
 import com.krontech.api.products.dto.ProductDetailTabSectionResponse;
@@ -23,15 +24,18 @@ public class ProductPublicContentAssembler {
     private final ProductTabCardRepository productTabCardRepository;
     private final ProductResourceLinkRepository productResourceLinkRepository;
     private final ObjectStorageClient objectStorageClient;
+    private final MediaAssetRepository mediaAssetRepository;
 
     public ProductPublicContentAssembler(
             ProductTabCardRepository productTabCardRepository,
             ProductResourceLinkRepository productResourceLinkRepository,
-            ObjectStorageClient objectStorageClient
+            ObjectStorageClient objectStorageClient,
+            MediaAssetRepository mediaAssetRepository
     ) {
         this.productTabCardRepository = productTabCardRepository;
         this.productResourceLinkRepository = productResourceLinkRepository;
         this.objectStorageClient = objectStorageClient;
+        this.mediaAssetRepository = mediaAssetRepository;
     }
 
     public record AssembledProductContent(
@@ -45,7 +49,7 @@ public class ProductPublicContentAssembler {
         UUID productId = product.getId();
         if (productId == null) {
             return new AssembledProductContent(
-                    ProductTabCardPresentation.toPublicSections(List.of(), objectStorageClient, false),
+                    ProductTabCardPresentation.toPublicSections(List.of(), objectStorageClient, mediaAssetRepository, false),
                     emptyIntro(),
                     List.of()
             );
@@ -53,7 +57,7 @@ public class ProductPublicContentAssembler {
         var tabCards = productTabCardRepository.findByProductId(productId);
         var links = productResourceLinkRepository.findByProductIdWithResourcesOrdered(productId);
         boolean structured = hasStructuredResourcesSection(product, links);
-        var detailTabs = ProductTabCardPresentation.toPublicSections(tabCards, objectStorageClient, structured);
+        var detailTabs = ProductTabCardPresentation.toPublicSections(tabCards, objectStorageClient, mediaAssetRepository, structured);
         var intro = mapIntro(product);
         var linked = mapLinkedResources(links, onlyPublishedLinkedResources);
         return new AssembledProductContent(detailTabs, intro, linked);
