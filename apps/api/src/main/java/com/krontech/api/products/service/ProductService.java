@@ -58,14 +58,19 @@ public class ProductService {
     }
 
     /**
-     * Published product only. Empty when the slug is unknown or not published — the public controller
-     * maps this to HTTP 404 (no synthetic payload, so CDNs and Next.js can tell “gone” from “live”).
+     * Published product only. Returns {@code null} when the slug is unknown or not published — the
+     * public controller maps this to HTTP 404 (no synthetic payload, so CDNs and Next.js can tell
+     * “gone” from “live”).
+     * Cached in Redis under {@code product-detail} for 20 minutes; null results (404s) are not cached.
+     * Evicted by {@link com.krontech.api.publishing.service.CacheService#evictProduct}.
      */
-    public Optional<ProductResponse> getPublishedProduct(String slug, String locale) {
+    @Cacheable(value = "product-detail", key = "#slug + ':' + #locale", unless = "#result == null")
+    public ProductResponse getPublishedProduct(String slug, String locale) {
         LocaleCode localeCode = LocaleCode.valueOf(locale.toUpperCase());
         return productRepository
                 .findBySlugAndLocaleAndStatus(slug, localeCode, PublishStatus.PUBLISHED)
-                .map(this::mapToResponse);
+                .map(this::mapToResponse)
+                .orElse(null);
     }
 
     /**

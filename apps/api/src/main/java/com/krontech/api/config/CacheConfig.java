@@ -30,13 +30,14 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
  * <h2>Cache names and TTLs</h2>
  *
  * <pre>
- *   pages         — generic page + content blocks    10 min
- *   blog-list     — blog post list (per locale)       10 min
+ *   pages          — generic page + content blocks    10 min
+ *   blog-list      — blog post list (per locale)       10 min
  *   blog-highlights — curated blog sidebar (per locale) 10 min
- *   blog-detail   — blog post detail                  20 min
- *   resource-list — resource listing (per locale)     10 min
- *   product-list  — published products (per locale)    10 min
- *   page-list     — published CMS pages strip (per locale + limit) 10 min
+ *   blog-detail    — blog post detail                  20 min
+ *   resource-list  — resource listing (per locale)     10 min
+ *   product-list   — published products (per locale)   10 min
+ *   product-detail — product detail page               20 min
+ *   page-list      — published CMS pages strip (per locale + limit) 10 min
  * </pre>
  *
  * <h2>Invalidation</h2>
@@ -111,9 +112,10 @@ public class CacheConfig implements CachingConfigurer {
         Map<String, RedisCacheConfiguration> perCacheConfigs = new HashMap<>();
         perCacheConfigs.put("pages",         base.entryTtl(Duration.ofMinutes(10)));
         perCacheConfigs.put("blog-list",     base.entryTtl(Duration.ofMinutes(10)));
-        perCacheConfigs.put("blog-detail",   base.entryTtl(Duration.ofMinutes(20)));
-        perCacheConfigs.put("resource-list", base.entryTtl(Duration.ofMinutes(10)));
-        perCacheConfigs.put("product-list", base.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfigs.put("blog-detail",     base.entryTtl(Duration.ofMinutes(20)));
+        perCacheConfigs.put("resource-list",   base.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfigs.put("product-list",    base.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfigs.put("product-detail",  base.entryTtl(Duration.ofMinutes(20)));
         perCacheConfigs.put("page-list", base.entryTtl(Duration.ofMinutes(10)));
         perCacheConfigs.put("blog-highlights", base.entryTtl(Duration.ofMinutes(10)));
 

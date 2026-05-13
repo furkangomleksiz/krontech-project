@@ -140,9 +140,10 @@ public class CacheService {
      */
     public void evictProduct(String locale, String slug) {
         log.info("cache_eviction_started type=product locale={} slug={}", locale, slug);
-        evictFromCache("pages",        slug + ":" + locale);
-        evictFromCache("product-list", "tr");
-        evictFromCache("product-list", "en");
+        evictFromCache("pages",          slug + ":" + locale);
+        evictFromCache("product-detail", slug + ":" + locale);
+        evictFromCache("product-list",   "tr");
+        evictFromCache("product-list",   "en");
         clearCacheFully("page-list");
         log.info("cache_eviction_finished type=product locale={} slug={}", locale, slug);
         revalidateAsync(locale, slug, List.of(
